@@ -66,10 +66,6 @@ def editor():
     return items("ColorEditor")[0]
 
 
-def swatch(label):
-    return [s for s in items("Swatch") if s.property("label") == label][0]
-
-
 def btn(text):
     return [b for b in items("Btn") if b.property("text") == text and b.isVisible()][0]
 
@@ -129,23 +125,34 @@ if FIRST:
 
 
 @step(1500)
-def go_colors():
-    S["start_step"] = obj("main").property("step")
-    shot("0-step1")
-    click(obj("step2"))
+def start():
+    shot("0-main")
+    S["palettes"] = [p["name"] for p in val(obj("main").property("palettes"))]
+    dark = obj("palette-Sfondo scuro")
+    if dark is not None:                         # palette ricavata dallo sfondo
+        click(dark)
 
 
-@step(300)
+@step(1500)
+def palette_back():
+    d = draft()["colors"]
+    S["dark_glass"] = d["glass"]
+    S["dirty_after_palette"] = obj("eng").property("dirty")
+    shot("0b-palette")
+    click(obj("palette-In uso"))                 # e si torna a quella in uso
+
+
+@step(1500)
 def hover():
-    S["step"] = obj("main").property("step")
-    QTest.mouseMove(view, at(swatch("Evidenziato")))
+    S["dirty_after_back"] = obj("eng").property("dirty")
+    QTest.mouseMove(view, at(obj("color-accent")))
 
 
 @step(300)
 def hover_check():
     S["hover_zones"] = val(obj("main").property("hoverZones"))
     shot("1-hover")
-    click(swatch("Evidenziato"))
+    click(obj("color-accent"))
 
 
 @step(800)
@@ -212,7 +219,7 @@ def after_use():
     S["draft_accent"] = d["colors"]["accent"]
     S["dirty"] = obj("eng").property("dirty")
     S["theme_untouched"] = theme_file()["colors"]["accent"]
-    click(swatch("Inizio"))
+    click(obj("color-borderFrom"))
 
 
 @step(500)
@@ -225,15 +232,10 @@ def border():
 
 
 @step(1500)
-def to_apply():
-    S["draft_border"] = draft()["colors"]["borderFrom"]
-    shot("3-modified")
-    click(obj("step3"))
-
-
-@step(300)
 def apply_():
-    S["changes"] = len(val(obj("main").property("changes")))
+    S["draft_border"] = draft()["colors"]["borderFrom"]
+    S["changes"] = obj("main").property("changes")
+    shot("3-modified")
     S["apply_enabled"] = btn("Applica ✓").property("enabledBtn")
     shot("4-review")
     click(btn("Applica ✓"))

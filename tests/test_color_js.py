@@ -78,5 +78,25 @@ class TestColorJs(unittest.TestCase):
         self.assertEqual(len(set(cols)), len(cols))
 
 
+    def test_suggest(self):
+        wall = '["#F2EDFA", "#FFE7A6", "#A7593A", "#251B34", "#DC9457", "#4788D5"]'
+        for dark in ("false", "true"):
+            p = self.ev(f"suggest({wall}, {dark})")
+            self.assertEqual(set(p), {"glass", "text", "accent", "accent2", "secondary", "borderFrom", "borderTo"})
+            for v in p.values():
+                self.assertRegex(v, r"^#[0-9A-F]{6}$")
+            self.assertGreaterEqual(self.ev(f'contrast("{p["text"]}", "{p["glass"]}")'), 4.5)   # testo leggibile
+            self.assertEqual(p["accent"], p["borderFrom"])
+        light, dark_ = self.ev(f"suggest({wall}, false)"), self.ev(f"suggest({wall}, true)")
+        self.assertGreater(self.ev(f'lum("{light["glass"]}")'), self.ev(f'lum("{dark_["glass"]}")'))
+
+    def test_suggest_hostile_or_empty(self):
+        self.assertIsNone(self.ev("suggest([], false)"))
+        self.assertIsNone(self.ev("suggest(null, true)"))
+        self.assertIsNone(self.ev('suggest(["red", "#12", "<script>"], false)'))
+        p = self.ev('suggest(["#808080"], true)')                     # sfondo grigio: niente tinta, ma funziona
+        self.assertGreaterEqual(self.ev(f'contrast("{p["text"]}", "{p["glass"]}")'), 4.5)
+
+
 if __name__ == "__main__":
     unittest.main()

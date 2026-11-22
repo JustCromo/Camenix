@@ -34,6 +34,14 @@ class TestBorders(unittest.TestCase):
         self.assertEqual(theme["colors"]["borderFrom"], "#E0B0FF")
         self.assertTrue(problems)
 
+    def test_shades_come_back_with_their_base(self):
+        # prova una palette, poi torna a quella in uso: anche le sfumature tornano quelle in uso
+        current = th.defaults()
+        tried = dv.derive(dict(current, accent="#123456"), current)
+        self.assertNotEqual(tried["accentSoft"], current["accentSoft"])
+        back = dv.derive(dict(tried, accent=current["accent"]), current)
+        self.assertEqual(back, current)
+
     def test_labels(self):
         self.assertNotEqual(t("role.borderFrom"), "role.borderFrom")
         self.assertNotEqual(t("role.borderTo"), "role.borderTo")

@@ -39,9 +39,13 @@ class TestPicker(unittest.TestCase):
         s = json.loads(pathlib.Path(shots, "report.json").read_text())
         self.assertEqual(s["errors"], [], r.stderr[-2000:])
         s = s["steps"]
-        self.assertEqual(s["start_step"], 1)                             # si parte da ① Sfondo
-        self.assertEqual(s["step"], 2)
-        self.assertEqual(s["changes"], 2)                                # ③ elenca accento e bordo
+        self.assertEqual(s["palettes"][0], "In uso")
+        self.assertIn("Sfondo scuro", s["palettes"])                     # palette proposte dallo sfondo
+        self.assertTrue(s["dirty_after_palette"])
+        r_, g_, b_ = (int(s["dark_glass"][i:i + 2], 16) for i in (1, 3, 5))
+        self.assertLess(r_ + g_ + b_, 200)                               # "scuro" è davvero scuro
+        self.assertFalse(s["dirty_after_back"])                          # "In uso" torna al tema applicato
+        self.assertEqual(s["changes"], 2)                                # accento e bordo
         self.assertEqual(s["hover_zones"], ["pills", "menu", "lock"])     # il passaggio illumina l'anteprima
         self.assertEqual(s["editor_role"], "accent")
         self.assertTrue(s["wall_colors"])                                # colori letti dallo sfondo

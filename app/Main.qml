@@ -1,13 +1,15 @@
-// Camenix · finestra principale in tre passi: ① Sfondo ② Colori ③ Applica
-// A sinistra l'anteprima (scrivania o blocco), a destra il passo attuale, in basso avanti/indietro.
+// Camenix · una schermata sola: anteprima in alto, sotto sfondo, palette e colori, in basso Applica.
+// Si adatta alla grandezza della finestra (anche affiancata alle altre).
 import QtQuick
+import "color.js" as C
 
 Rectangle {
     id: main
     property var eng
-    property int step: 1
     property bool showLock: false
+    property bool more: false               // "Altri colori" aperto
     property var hoverZones: []             // zone dell'anteprima da illuminare
+    property var wallColors: []             // colori principali dello sfondo (per le palette proposte)
 
     // colori dell'app: fissi (chiaro o scuro), non dipendono dal tema del desktop
     readonly property bool dark: eng.mode === "dark"
@@ -33,137 +35,108 @@ Rectangle {
     }
     color: pal.window
 
-    // colori raggruppati per zona del desktop: nome concreto, dove si vede, cosa illuminare nell'anteprima
-    readonly property var sections: [
-        { title: "Isole e menu", icon: "islands", hint: "barre, menu, notifiche", items: [
-            { key: "glass", label: "Sfondo", against: "text", zones: ["pills", "menu", "lock"],
-              desc: "Lo sfondo delle isole, dei menu e delle notifiche." },
-            { key: "text", label: "Testo", against: "glass", zones: ["pills", "menu", "clock"],
-              desc: "Le scritte su isole, menu e notifiche, e l'orologio del blocco." },
-            { key: "accent", label: "Evidenziato", zones: ["pills", "menu", "lock"],
-              desc: "Il contorno delle isole, la voce scelta nei menu e il campo password del blocco." },
-            { key: "accent2", label: "Risalto", zones: ["menu"],
-              desc: "La riga sotto la voce scelta e i dettagli in risalto (pulsanti attivi, avanzamento)." },
-            { key: "secondary", label: "Dettagli", zones: ["menu"],
-              desc: "Il contorno dei menu e le parti secondarie (con le sue sfumature chiare e scure)." } ] },
-        { title: "Bordi delle finestre", icon: "borders", hint: "sfumano dall'inizio alla fine", items: [
-            { key: "borderFrom", label: "Inizio", zones: ["border"], desc: "Il bordo della finestra attiva parte da questo colore…" },
-            { key: "borderTo", label: "Fine", zones: ["border"], desc: "…e sfuma fino a questo." } ] },
-        { title: "Terminale", icon: "terminal", hint: "kitty", items: [
-            { key: "terminal.background", label: "Sfondo", zones: ["term"], desc: "Lo sfondo di kitty." } ] },
-        { title: "Avvisi", icon: "alerts", hint: "notifiche e stati", items: [
-            { key: "success", label: "Tutto ok", zones: [], desc: "Conferme e stati positivi (es. batteria in carica)." },
-            { key: "warning", label: "Attenzione", zones: [], desc: "Avvisi da tenere d'occhio (es. batteria bassa)." },
-            { key: "error", label: "Errore", zones: [], desc: "Errori e notifiche urgenti." } ] }
+    // i colori principali (sempre visibili) e gli altri (in "Altri colori")
+    readonly property var mainColors: [
+        { key: "glass", label: "Sfondo", against: "text", zones: ["pills", "menu", "lock"],
+          title: "Sfondo di isole, menu e notifiche", desc: "Il fondo delle isole, dei menu e delle notifiche." },
+        { key: "text", label: "Testo", against: "glass", zones: ["pills", "menu", "clock"],
+          title: "Testo", desc: "Le scritte su isole, menu e notifiche, e l'orologio del blocco." },
+        { key: "accent", label: "Accento", zones: ["pills", "menu", "lock"],
+          title: "Accento", desc: "Il contorno delle isole, la voce scelta nei menu e il campo password del blocco." },
+        { key: "borderFrom", label: "Bordo 1", zones: ["border"],
+          title: "Bordo delle finestre · inizio", desc: "Il bordo della finestra attiva parte da questo colore…" },
+        { key: "borderTo", label: "Bordo 2", zones: ["border"],
+          title: "Bordo delle finestre · fine", desc: "…e sfuma fino a questo." },
+        { key: "terminal.background", label: "Terminale", zones: ["term"],
+          title: "Sfondo del terminale", desc: "Lo sfondo di kitty." }
     ]
-    readonly property var kindNames: ({ hyprland: "Bordi delle finestre (Hyprland)", kitty: "Terminale (kitty)",
-                                        mako: "Notifiche (mako)", rofi: "Menu (rofi)", hyprlock: "Blocco schermo (hyprlock)",
-                                        quickshell: "Isole (Quickshell)", other: "Altre config" })
+    readonly property var otherColors: [
+        { key: "accent2", label: "Risalto", zones: ["menu"], title: "Risalto", desc: "La riga sotto la voce scelta e i dettagli in risalto." },
+        { key: "secondary", label: "Dettagli", zones: ["menu"], title: "Dettagli", desc: "Il contorno dei menu e le parti secondarie." },
+        { key: "success", label: "Ok", zones: [], title: "Tutto ok", desc: "Conferme e stati positivi (es. batteria in carica)." },
+        { key: "warning", label: "Avviso", zones: [], title: "Avviso", desc: "Cose da tenere d'occhio (es. batteria bassa)." },
+        { key: "error", label: "Errore", zones: [], title: "Errore", desc: "Errori e notifiche urgenti." }
+    ]
+    readonly property var paletteKeys: ["glass", "text", "accent", "accent2", "secondary", "borderFrom", "borderTo"]
+
     function hexIn(theme, key) {
         if (!theme) return "#000000"
         return key.indexOf("terminal.") === 0 ? theme.terminal[key.slice(9)] : theme.colors[key]
     }
     function hexOf(key) { return hexIn(eng.draft, key) }
-    function fileName(p) { return p ? p.split("/").pop() : "" }
-
-    // cosa cambierà premendo Applica (per il passo ③)
-    readonly property var changes: {
-        const c = eng.current, d = eng.draft, out = []
-        if (!c || !d) return out
-        for (const s of sections)
-            for (const it of s.items) {
-                const a = hexIn(c, it.key), b = hexIn(d, it.key)
-                if (a !== b) out.push({ label: s.title + " · " + it.label, from: a, to: b })
-            }
-        if (c.wallpaper.home !== d.wallpaper.home) out.push({ label: "Sfondo della scrivania", image: d.wallpaper.home || "" })
-        if (c.wallpaper.lock_same !== d.wallpaper.lock_same || (!d.wallpaper.lock_same && c.wallpaper.lock !== d.wallpaper.lock))
-            out.push({ label: "Schermata di blocco", note: d.wallpaper.lock_same ? "stesso sfondo, sfocato" : "un'altra immagine" })
+    function pick(theme) {                              // i colori di una palette presi da un tema
+        if (!theme) return null
+        const o = {}
+        for (const k of paletteKeys) o[k] = theme.colors[k]
+        return o
+    }
+    // palette da cliccare: quella in uso, quella iniziale, e due ricavate dallo sfondo
+    readonly property var palettes: {
+        const out = [], seen = {}
+        function add(name, c) {
+            if (!c) return
+            const id = paletteKeys.map(k => c[k]).join()
+            if (seen[id]) return
+            seen[id] = true
+            out.push({ name: name, c: c })
+        }
+        add("In uso", pick(eng.current))
+        add("Iniziale", pick(eng.original))
+        add("Sfondo chiaro", C.suggest(wallColors, false))
+        add("Sfondo scuro", C.suggest(wallColors, true))
         return out
     }
-    // passando sopra un colore che si vede solo nel blocco, l'anteprima passa al blocco
+    function isDraft(c) { return !!eng.draft && paletteKeys.every(k => eng.draft.colors[k] === c[k]) }
+    readonly property int changes: {
+        const c = eng.current, d = eng.draft
+        if (!c || !d) return 0
+        let n = 0
+        for (const it of mainColors.concat(otherColors)) if (hexIn(c, it.key) !== hexIn(d, it.key)) n++
+        if (c.wallpaper.home !== d.wallpaper.home) n++
+        if (c.wallpaper.lock_same !== d.wallpaper.lock_same || c.wallpaper.lock !== d.wallpaper.lock) n++
+        return n
+    }
     readonly property bool lockZonesOnly: hoverZones.length > 0 && hoverZones.every(z => z === "lock" || z === "clock")
+
+    function edit(it) {
+        hoverZones = []
+        editor.label = it.title
+        editor.desc = it.desc
+        editor.against = it.against ? hexOf(it.against) : ""
+        editor.startHex = hexOf(it.key)
+        editor.role = it.key
+    }
 
     focus: true
     Keys.onEscapePressed: if (editor.role !== "") editor.role = ""; else Qt.quit()
 
-    // ── intestazione: logo, passi, chiaro/scuro, chiudi ─────────
+    // ── intestazione ───────────────────────────────────
     Item {
         id: header
-        width: parent.width; height: 72
+        width: parent.width; height: 60
         Row {
-            x: 22; anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
-            Image { width: 40; height: 40; source: Qt.resolvedUrl("assets/camenix.svg"); sourceSize.width: 80; sourceSize.height: 80 }
-            Column {
-                anchors.verticalCenter: parent.verticalCenter
-                Text { text: "Camenix"; color: pal.fg; font.family: pal.font; font.pixelSize: 19; font.weight: Font.ExtraBold }
-                Text { text: "sfondo e colori del desktop"; color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
-            }
-        }
-        Row {                                       // ① Sfondo ── ② Colori ── ③ Applica
-            anchors.centerIn: parent
-            spacing: 8
-            Repeater {
-                model: ["Sfondo", "Colori", "Applica"]
-                Row {
-                    id: stepItem
-                    required property string modelData
-                    required property int index
-                    readonly property int n: index + 1
-                    readonly property bool on: main.step === n
-                    spacing: 8
-                    Rectangle {
-                        visible: stepItem.index > 0
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 26; height: 2; radius: 1
-                        color: main.step >= stepItem.n ? pal.accent2 : pal.line
-                    }
-                    Rectangle {
-                        objectName: "step" + stepItem.n
-                        width: stepRow.implicitWidth + 24; height: 36; radius: 18
-                        color: stepItem.on ? pal.accent : (stepArea.containsMouse ? pal.hover : "transparent")
-                        border.width: 1.5
-                        border.color: stepItem.on ? pal.accent2 : pal.line
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Row {
-                            id: stepRow
-                            anchors.centerIn: parent
-                            spacing: 8
-                            Rectangle {
-                                width: 22; height: 22; radius: 11
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: stepItem.on ? pal.accentInk : (main.step > stepItem.n ? pal.accent2 : pal.line)
-                                Text { anchors.centerIn: parent; text: main.step > stepItem.n ? "✓" : stepItem.n
-                                       color: stepItem.on ? pal.accent : (main.step > stepItem.n ? "white" : pal.fg)
-                                       font.family: pal.font; font.pixelSize: 11; font.weight: Font.ExtraBold }
-                            }
-                            Text { anchors.verticalCenter: parent.verticalCenter; text: stepItem.modelData
-                                   color: stepItem.on ? pal.accentInk : pal.fg; font.family: pal.font; font.pixelSize: 13; font.weight: Font.Bold }
-                        }
-                        MouseArea { id: stepArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: main.step = stepItem.n }
-                    }
-                }
-            }
+            x: 24; anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+            Image { width: 34; height: 34; source: Qt.resolvedUrl("assets/camenix.svg"); sourceSize.width: 68; sourceSize.height: 68 }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Camenix"; color: pal.fg; font.family: pal.font; font.pixelSize: 18; font.weight: Font.ExtraBold }
         }
         Rectangle {                                 // chiaro / scuro (solo l'app)
-            id: modeBtn
             anchors.right: closeBtn.left; anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: 74; height: 32; radius: 16
+            width: 64; height: 30; radius: 15
             color: pal.card
             border.width: 1.5; border.color: pal.line
             Rectangle {
-                width: 28; height: 26; radius: 13; y: 3
+                width: 26; height: 24; radius: 12; y: 3
                 x: main.dark ? parent.width - width - 3 : 3
                 color: pal.accent
                 Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             }
-            Text { x: 10; anchors.verticalCenter: parent.verticalCenter; text: "☀"; color: main.dark ? pal.fg : pal.accentInk; font.pixelSize: 14 }
-            Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; text: "☾"; color: main.dark ? pal.accentInk : pal.fg; font.pixelSize: 14 }
+            Text { x: 9; anchors.verticalCenter: parent.verticalCenter; text: "☀"; color: main.dark ? pal.fg : pal.accentInk; font.pixelSize: 13 }
+            Text { anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter; text: "☾"; color: main.dark ? pal.accentInk : pal.fg; font.pixelSize: 13 }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.eng.setMode(main.dark ? "light" : "dark") }
         }
-        Item {                                      // chiudi l'app: una ✕ leggera, rossa al passaggio
+        Item {
             id: closeBtn
             anchors.right: parent.right; anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
@@ -172,273 +145,210 @@ Rectangle {
             Text { anchors.centerIn: parent; text: "✕"; color: closeArea.containsMouse ? pal.bad : pal.muted; font.pixelSize: 15 }
             MouseArea { id: closeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
         }
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: pal.line }
     }
 
-    // ── anteprima (sinistra) ───────────────────────────
-    Item {
-        id: previewCol
-        x: 24; y: header.height + 18
-        width: Math.round(parent.width * 0.55)
-        height: bottom.y - y - 18
-        Row {                                       // scrivania | blocco
-            id: tabs
-            spacing: 0
-            Repeater {
-                model: [{ t: "Scrivania", lock: false }, { t: "Blocco schermo", lock: true }]
-                Rectangle {
-                    required property var modelData
-                    required property int index
-                    readonly property bool on: main.showLock === modelData.lock
-                    width: tabText.implicitWidth + 32; height: 32
-                    radius: 16
-                    color: on ? pal.fg : "transparent"
-                    border.width: 1.5; border.color: on ? pal.fg : pal.line
-                    Text { id: tabText; anchors.centerIn: parent; text: parent.modelData.t; color: parent.on ? pal.window : pal.fg
-                           font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.showLock = parent.modelData.lock }
-                }
-            }
-        }
-        Text {
-            anchors.right: parent.right; anchors.verticalCenter: tabs.verticalCenter
-            text: "anteprima · il desktop cambia solo con Applica"
-            color: pal.muted; font.family: pal.font; font.pixelSize: 10
-        }
-        Preview {
-            id: preview
-            ui: pal
-            anchors.top: tabs.bottom; anchors.topMargin: 12
-            width: parent.width; height: parent.height - tabs.height - 12
-            theme: main.eng.draft
-            highlight: main.hoverZones
-            lock: main.showLock || main.lockZonesOnly
-        }
-    }
-
-    // ── passo attuale (destra) ─────────────────────────
-    Item {
-        id: stepPanel
-        anchors.left: previewCol.right; anchors.leftMargin: 26
-        anchors.right: parent.right; anchors.rightMargin: 24
-        y: previewCol.y
-        height: previewCol.height
-
-        component StepTitle: Column {
-            property string title: ""
-            property string sub: ""
-            width: parent ? parent.width : 0             // (nota: «right»/«left» sono nomi riservati degli Item, mai usarli come id)
-            spacing: 4
-            Text { text: parent.title; color: pal.fg; font.family: pal.font; font.pixelSize: 18; font.weight: Font.ExtraBold }
-            Text { width: parent.width; text: parent.sub; wrapMode: Text.WordWrap; color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
-        }
-        component Card: Rectangle {
-            width: parent ? parent.width : 0
-            radius: 18
-            color: pal.card
-            border.width: 1.5; border.color: pal.line
-        }
-
-        // ① Sfondo
+    // ── contenuto (scorre se la finestra è bassa) ───────
+    Flickable {
+        id: body
+        anchors.top: header.bottom
+        anchors.bottom: bottom.top
+        width: parent.width
+        contentHeight: content.implicitHeight + 24
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
         Column {
-            visible: main.step === 1
-            width: parent.width
-            spacing: 16
-            StepTitle { title: "Scegli lo sfondo"; sub: "Un'immagine PNG, JPEG o WebP. Camenix ne tiene una copia, così puoi spostare o cancellare l'originale." }
-            Card {
-                height: 132
-                Row {
-                    x: 16; anchors.verticalCenter: parent.verticalCenter
-                    spacing: 16
-                    Rectangle {
-                        width: 160; height: 100; radius: 12; clip: true
-                        color: pal.panel; border.width: 1; border.color: pal.line
-                        Image { anchors.fill: parent; anchors.margins: 1; fillMode: Image.PreserveAspectCrop; asynchronous: true
-                                sourceSize.width: 320
-                                source: main.eng.draft && main.eng.draft.wallpaper.home ? "file://" + main.eng.draft.wallpaper.home : "" }
-                        Text { anchors.centerIn: parent; visible: !(main.eng.draft && main.eng.draft.wallpaper.home); text: "nessuno sfondo"
-                               color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
-                    }
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 10
-                        Row { spacing: 8
-                            Icon { ui: pal; kind: "image"; width: 26; height: 26 }
-                            Text { anchors.verticalCenter: parent.verticalCenter; text: "Scrivania"; color: pal.fg; font.family: pal.font; font.pixelSize: 14; font.weight: Font.Bold } }
-                        Btn { ui: pal; text: "Scegli immagine…"; primary: true; onClicked: main.eng.chooseWallpaper("home") }
-                    }
-                }
-            }
-            Card {
-                height: lockCol.implicitHeight + 32
-                Column {
-                    id: lockCol
-                    x: 16; y: 16
-                    width: parent.width - 32
-                    spacing: 10
-                    Row { spacing: 8
-                        Icon { ui: pal; kind: "lock"; width: 26; height: 26 }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Schermata di blocco"; color: pal.fg; font.family: pal.font; font.pixelSize: 14; font.weight: Font.Bold } }
+            id: content
+            width: Math.min(body.width - 48, 1080)          // su schermi larghi resta centrato e compatto
+            x: (body.width - width) / 2
+            topPadding: 4
+            spacing: 18
+
+            // anteprima: 16:9, ma mai così alta da spingere fuori i comandi
+            Preview {
+                id: preview
+                ui: pal
+                width: parent.width
+                height: Math.max(200, Math.min(width * 9 / 16, body.height - controls.implicitHeight - 46))
+                theme: main.eng.draft
+                highlight: main.hoverZones
+                lock: main.showLock || main.lockZonesOnly
+                Row {                                   // scrivania | blocco schermo
+                    anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12
+                    z: 60
+                    spacing: 6
                     Repeater {
-                        model: [{ t: "Lo stesso sfondo, sfocato", same: true }, { t: "Un'altra immagine", same: false }]
+                        model: [{ t: "Scrivania", lock: false }, { t: "Blocco schermo", lock: true }]
                         Rectangle {
                             required property var modelData
-                            readonly property bool on: main.eng.draft ? main.eng.draft.wallpaper.lock_same === modelData.same : modelData.same
-                            width: lockCol.width; height: 40; radius: 12
-                            color: on ? pal.hover : "transparent"
-                            border.width: 1.5; border.color: on ? pal.accent2 : pal.line
-                            Rectangle { x: 12; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; radius: 9
-                                        color: "transparent"; border.width: 2; border.color: parent.on ? pal.accent2 : pal.muted
-                                        Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: pal.accent2; visible: parent.parent.on } }
-                            Text { x: 40; anchors.verticalCenter: parent.verticalCenter; text: parent.modelData.t; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                        onClicked: { main.showLock = true; if (parent.modelData.same) main.eng.setLockSame(true); else main.eng.chooseWallpaper("lock") } }
+                            readonly property bool on: main.showLock === modelData.lock
+                            width: tt.implicitWidth + 24; height: 28; radius: 14
+                            color: on ? Qt.rgba(0.12, 0.08, 0.16, 0.85) : Qt.rgba(1, 1, 1, 0.85)
+                            border.width: 1; border.color: Qt.rgba(0.12, 0.08, 0.16, 0.35)
+                            Text { id: tt; anchors.centerIn: parent; text: parent.modelData.t; color: parent.on ? "white" : "#1E1528"
+                                   font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.showLock = parent.modelData.lock }
                         }
                     }
-                    Btn { ui: pal; visible: main.eng.draft && !main.eng.draft.wallpaper.lock_same; text: "Cambia immagine del blocco…"
-                          onClicked: main.eng.chooseWallpaper("lock") }
                 }
             }
-        }
 
-        // ② Colori
-        Column {
-            id: colorsStep
-            visible: main.step === 2
-            width: parent.width
-            spacing: 12
-            StepTitle { title: "Scegli i colori"; sub: "Passa sopra un colore per vedere dove compare, cliccalo per cambiarlo. Le sfumature si adattano da sole." }
-            Repeater {
-                model: main.sections
-                Column {
-                    id: sec
-                    required property var modelData
-                    width: colorsStep.width
-                    spacing: 6
-                    Row {
-                        spacing: 8
-                        Icon { ui: pal; kind: sec.modelData.icon; width: 24; height: 24; radius: 8 }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: sec.modelData.title; color: pal.fg; font.family: pal.font; font.pixelSize: 13; font.weight: Font.ExtraBold }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: sec.modelData.hint; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
-                    }
-                    Grid {
-                        columns: 3
-                        spacing: 8
-                        Repeater {
-                            model: sec.modelData.items
-                            Swatch {
-                                required property var modelData
-                                ui: pal
-                                width: (colorsStep.width - 16) / 3
-                                label: modelData.label
-                                hex: main.hexOf(modelData.key)
-                                selected: editor.role === modelData.key
-                                onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
-                                onClicked: {
-                                    main.hoverZones = []
-                                    editor.label = sec.modelData.title + " · " + modelData.label
-                                    editor.desc = modelData.desc
-                                    editor.against = modelData.against ? main.hexOf(modelData.against) : ""
-                                    editor.startHex = hex
-                                    editor.role = modelData.key
-                                }
-                            }
-                        }
-                        Rectangle {                  // il gradiente dei bordi, accanto ai suoi due colori
-                            visible: sec.modelData.icon === "borders"
-                            width: (colorsStep.width - 16) / 3; height: 56; radius: 14
-                            gradient: Gradient { orientation: Gradient.Horizontal
-                                GradientStop { position: 0; color: main.hexOf("borderFrom") }
-                                GradientStop { position: 1; color: main.hexOf("borderTo") } }
-                            Rectangle { anchors.fill: parent; anchors.margins: 4; radius: 10; color: pal.card
-                                Text { anchors.centerIn: parent; text: "finestra attiva"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 } }
-                        }
-                    }
-                }
-            }
-            Text {
-                text: "↺  Torna ai colori iniziali"
-                color: resetArea.containsMouse ? pal.accent2 : pal.muted
-                font.family: pal.font; font.pixelSize: 11; font.underline: resetArea.containsMouse
-                MouseArea { id: resetArea; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: main.eng.resetColors() }
-            }
-        }
-
-        // ③ Applica
-        Column {
-            id: applyStep
-            visible: main.step === 3
-            width: parent.width
-            spacing: 14
-            StepTitle { title: "Controlla e applica"
-                        sub: main.changes.length ? "Ecco cosa cambia sul desktop." : "Nessuna modifica: il desktop è già così. Torna a ① Sfondo o ② Colori per cambiare qualcosa." }
-            Card {
-                visible: main.changes.length > 0
-                height: Math.min(changeList.implicitHeight + 24, 250)
-                clip: true
-                Flickable {
-                    anchors.fill: parent; anchors.margins: 12
-                    contentHeight: changeList.implicitHeight
-                    boundsBehavior: Flickable.StopAtBounds
-                    Column {
-                        id: changeList
-                        width: parent.width
-                        spacing: 6
-                        Repeater {
-                            model: main.changes
-                            Item {
-                                required property var modelData
-                                width: changeList.width; height: 28
-                                Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width - 120; elide: Text.ElideRight
-                                       text: parent.modelData.label; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
-                                Row {
-                                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 6
-                                    visible: !!parent.modelData.from
-                                    Rectangle { width: 26; height: 20; radius: 6; color: parent.parent.modelData.from || "transparent"; border.width: 1; border.color: pal.line }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "→"; color: pal.muted; font.pixelSize: 12 }
-                                    Rectangle { width: 26; height: 20; radius: 6; color: parent.parent.modelData.to || "transparent"; border.width: 1; border.color: pal.line }
-                                }
-                                Text { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; visible: !parent.modelData.from
-                                       text: parent.modelData.note || "nuova immagine"; color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
-                            }
-                        }
-                    }
-                }
-            }
-            Text { text: "Dove arriva"; color: pal.fg; font.family: pal.font; font.pixelSize: 13; font.weight: Font.ExtraBold }
-            Flow {
+            Column {
+                id: controls
                 width: parent.width
-                spacing: 6
-                Repeater {
-                    model: ["wallpaper"].concat(main.eng.managedKinds)
-                    Rectangle {
-                        required property string modelData
-                        width: kindText.implicitWidth + 22; height: 28; radius: 14
-                        color: pal.panel; border.width: 1; border.color: pal.line
-                        Text { id: kindText; anchors.centerIn: parent; text: parent.modelData === "wallpaper" ? "Sfondo" : (main.kindNames[parent.modelData] || parent.modelData)
-                               color: pal.fg; font.family: pal.font; font.pixelSize: 11 }
+                spacing: 16
+
+                component Label: Text {
+                    width: 110
+                    color: pal.muted
+                    font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold
+                }
+
+                // Sfondo
+                Row {
+                    spacing: 0
+                    Label { text: "Sfondo"; anchors.verticalCenter: parent.verticalCenter }
+                    Row {
+                        spacing: 12
+                        Rectangle {
+                            width: 112; height: 63; radius: 10; clip: true
+                            color: pal.panel; border.width: 1; border.color: pal.line
+                            Canvas {                    // miniatura: da qui si leggono anche i colori per le palette
+                                id: thumb
+                                anchors.fill: parent; anchors.margins: 1
+                                property string src: main.eng.draft && main.eng.draft.wallpaper.home ? "file://" + main.eng.draft.wallpaper.home : ""
+                                onSrcChanged: { main.wallColors = []; if (src !== "") { if (isImageLoaded(src)) requestPaint(); else loadImage(src) } else requestPaint() }
+                                onImageLoaded: requestPaint()
+                                onPaint: {
+                                    const ctx = getContext("2d")
+                                    ctx.reset()
+                                    if (src === "" || !isImageLoaded(src)) return
+                                    ctx.drawImage(src, 0, 0, width, height)
+                                    try { main.wallColors = C.palette(ctx.getImageData(0, 0, width, height).data, 8) } catch (e) { main.wallColors = [] }
+                                }
+                            }
+                            Text { anchors.centerIn: parent; visible: thumb.src === ""; text: "nessuno"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
+                        }
+                        Btn { anchors.verticalCenter: parent.verticalCenter; ui: pal; text: "Cambia…"; onClicked: main.eng.chooseWallpaper("home") }
+                        Rectangle {                     // blocco: stesso sfondo sì/no
+                            id: sameLock
+                            anchors.verticalCenter: parent.verticalCenter
+                            readonly property bool on: main.eng.draft ? main.eng.draft.wallpaper.lock_same : true
+                            width: sameRow.implicitWidth + 24; height: 38; radius: 19
+                            color: sameArea.containsMouse ? pal.hover : "transparent"
+                            border.width: 1.5; border.color: pal.line
+                            Row {
+                                id: sameRow
+                                anchors.centerIn: parent
+                                spacing: 8
+                                Rectangle { width: 18; height: 18; radius: 5; anchors.verticalCenter: parent.verticalCenter
+                                            color: sameLock.on ? pal.accent2 : "transparent"; border.width: 2; border.color: sameLock.on ? pal.accent2 : pal.muted
+                                            Text { anchors.centerIn: parent; text: "✓"; visible: sameLock.on; color: "white"; font.pixelSize: 11; font.bold: true } }
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: "Stesso sfondo nel blocco schermo"; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
+                            }
+                            MouseArea { id: sameArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { main.showLock = true; if (sameLock.on) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) } }
+                        }
                     }
                 }
-            }
-            Rectangle {
-                width: parent.width; height: safeText.implicitHeight + 20; radius: 14
-                color: pal.panel
-                Text { id: safeText; x: 12; y: 10; width: parent.width - 24; wrapMode: Text.WordWrap
-                       text: "Dopo aver premuto Applica hai 15 secondi per decidere: se non premi «Tieni», il desktop torna com'era. Prima di cambiare un file Camenix ne salva una copia."
-                       color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
+
+                // Palette
+                Row {
+                    spacing: 0
+                    Label { text: "Palette"; anchors.verticalCenter: parent.verticalCenter }
+                    Flow {
+                        width: controls.width - 110
+                        spacing: 10
+                        Repeater {
+                            model: main.palettes
+                            Rectangle {
+                                id: chip
+                                required property var modelData
+                                readonly property bool on: main.isDraft(modelData.c)
+                                objectName: "palette-" + modelData.name
+                                width: 150; height: 58; radius: 16
+                                color: modelData.c.glass
+                                border.width: on ? 3 : 1.5
+                                border.color: on ? pal.accent2 : (chipArea.containsMouse ? pal.muted : pal.line)
+                                Row {
+                                    x: 12; y: 10
+                                    spacing: 5
+                                    Repeater {
+                                        model: ["accent", "accent2", "secondary", "borderFrom", "borderTo"]
+                                        Rectangle { required property string modelData; width: 18; height: 18; radius: 9
+                                                    color: chip.modelData.c[modelData]; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    }
+                                }
+                                Text { x: 12; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
+                                       text: chip.modelData.name; color: chip.modelData.c.text; font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
+                                MouseArea { id: chipArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onClicked: main.eng.setColors(chip.modelData.c) }
+                            }
+                        }
+                    }
+                }
+
+                // Colori
+                Row {
+                    spacing: 0
+                    Label { text: "Colori"; y: 16 }
+                    Column {
+                        spacing: 4
+                        Flow {
+                            width: controls.width - 110
+                            spacing: 6
+                            Repeater {
+                                model: main.mainColors
+                                ColorCircle {
+                                    required property var modelData
+                                    objectName: "color-" + modelData.key
+                                    ui: pal
+                                    label: modelData.label
+                                    hex: main.hexOf(modelData.key)
+                                    selected: editor.role === modelData.key
+                                    onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
+                                    onClicked: main.edit(modelData)
+                                }
+                            }
+                        }
+                        Text {
+                            id: moreBtn
+                            text: (main.more ? "▾" : "▸") + "  Altri colori"
+                            color: moreArea.containsMouse ? pal.accent2 : pal.muted
+                            font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold
+                            MouseArea { id: moreArea; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: main.more = !main.more }
+                        }
+                        Flow {
+                            visible: main.more
+                            width: controls.width - 110
+                            spacing: 6
+                            Repeater {
+                                model: main.otherColors
+                                ColorCircle {
+                                    required property var modelData
+                                    objectName: "color-" + modelData.key
+                                    ui: pal
+                                    label: modelData.label
+                                    hex: main.hexOf(modelData.key)
+                                    selected: editor.role === modelData.key
+                                    onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
+                                    onClicked: main.edit(modelData)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    // ── barra in basso ─────────────────────────────────
+    // ── barra in basso: stato e Applica ─────────────────
     Rectangle {
         id: bottom
         anchors.bottom: parent.bottom
         width: parent.width
-        height: 70
-        color: "transparent"
+        height: 68
+        color: pal.panel
         Rectangle { width: parent.width; height: 1; color: pal.line }
         Row {
             x: 24; anchors.verticalCenter: parent.verticalCenter
@@ -450,7 +360,7 @@ Rectangle {
                 elide: Text.ElideRight
                 text: main.eng.error !== "" ? main.eng.error
                     : main.eng.busy ? "Un momento…"
-                    : main.eng.dirty ? (main.changes.length === 1 ? "1 modifica da applicare" : main.changes.length + " modifiche da applicare")
+                    : main.eng.dirty ? "Anteprima modificata: premi Applica per portarla sul desktop"
                     : "Il desktop è uguale all'anteprima"
                 color: main.eng.error !== "" ? pal.bad : pal.fg
                 font.family: pal.font; font.pixelSize: 12
@@ -461,10 +371,8 @@ Rectangle {
             anchors.right: parent.right; anchors.rightMargin: 24
             anchors.verticalCenter: parent.verticalCenter
             spacing: 10
-            Btn { ui: pal; visible: main.eng.dirty; text: "Annulla modifiche"; enabledBtn: !main.eng.busy; onClicked: main.eng.discard() }
-            Btn { ui: pal; visible: main.step > 1; text: "← Indietro"; onClicked: main.step-- }
-            Btn { ui: pal; visible: main.step < 3; text: "Avanti →"; primary: true; onClicked: main.step++ }
-            Btn { ui: pal; visible: main.step === 3; text: "Applica ✓"; primary: true
+            Btn { ui: pal; visible: main.eng.dirty; text: "Annulla"; enabledBtn: !main.eng.busy; onClicked: main.eng.discard() }
+            Btn { ui: pal; text: "Applica ✓"; primary: true
                   enabledBtn: main.eng.dirty && !main.eng.busy && !main.eng.awaitingKeep; onClicked: main.eng.apply() }
         }
     }
@@ -504,7 +412,10 @@ Rectangle {
         onRevert: main.eng.revert()
     }
 
-    Welcome { ui: pal; eng: main.eng; kindNames: main.kindNames; visible: main.eng.firstRun }
+    Welcome { ui: pal; eng: main.eng; kindNames: ({ hyprland: "Bordi delle finestre (Hyprland)", kitty: "Terminale (kitty)",
+                                                    mako: "Notifiche (mako)", rofi: "Menu (rofi)", hyprlock: "Blocco schermo (hyprlock)",
+                                                    quickshell: "Isole (Quickshell)", other: "Altre config" })
+              visible: main.eng.firstRun }
 
     ColorEditor {
         id: editor

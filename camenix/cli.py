@@ -55,6 +55,7 @@ def cmd_status(args, out, err):
         kitty_on = any(k["kind"] == "kitty" for k in ap.will_manage()) and exists
         print(json.dumps({"version": __version__, "path": th.theme_path(), "exists": exists, "theme": theme,
                           "first_run": not exists, "managed": managed,
+                          "original": (ap.original() or th.default_theme()),
                           "managed_kinds": sorted({ap.kind(f) for f in managed} | ({"kitty"} if kitty_on else set())),
                           "problems": _problems_text(problems)}, ensure_ascii=False))
         return PROBLEM if problems else OK

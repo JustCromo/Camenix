@@ -88,3 +88,36 @@ function palette(data, n, minDist) {
     }
     return out.map(c => rgbToHex(c.r, c.g, c.b))
 }
+
+function lum(hex) {
+    const c = hexToRgb(hex)
+    if (!c) return 0
+    const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b)
+}
+
+function contrast(a, b) {
+    const la = lum(a), lb = lum(b)
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+// palette proposta dai colori di uno sfondo (quelli trovati da palette()).
+// L'accento è il colore più vivace, i bordi vanno dal più vivace al secondo; sfondo e testo delle isole
+// sono chiari (o scuri) con una punta della stessa tinta, e il testo è sempre leggibile.
+function suggest(list, dark) {
+    const cols = (list || []).map(normHex).filter(h => h !== "")
+    if (!cols.length) return null
+    const info = cols.map(h => { const c = hexToRgb(h), v = rgbToHsv(c.r, c.g, c.b); return { hex: h, h: v.h, s: v.s, v: v.v } })
+    const vivid = info.slice().sort((a, b) => b.s * b.v - a.s * a.v)
+    const a1 = vivid[0]
+    const a2 = vivid.find(c => Math.abs(c.h - a1.h) > 25 && c.s > 0.15) || vivid[1] || a1
+    const glass = dark ? hsvToHex(a1.h, Math.min(0.35, a1.s), 0.14) : hsvToHex(a1.h, Math.min(0.06, a1.s), 0.985)
+    let text = dark ? hsvToHex(a1.h, Math.min(0.08, a1.s), 0.97) : hsvToHex(a1.h, Math.min(0.4, a1.s), 0.15)
+    if (contrast(text, glass) < 4.5) text = dark ? "#FFFFFF" : "#1A1A1A"
+    return {
+        glass: glass, text: text,
+        accent: a1.hex, accent2: a2.hex,
+        secondary: hsvToHex(a2.h, Math.min(0.45, Math.max(0.2, a2.s)), dark ? 0.7 : 0.88),
+        borderFrom: a1.hex, borderTo: a2.hex
+    }
+}

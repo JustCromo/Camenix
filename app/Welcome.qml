@@ -40,13 +40,13 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     Text { text: "Benvenuto in Camenix"; color: ui.fg; font.family: ui.font; font.pixelSize: 20; font.weight: Font.ExtraBold }
-                    Text { text: "sfondo e colori del desktop, in tre passi"; color: ui.muted; font.family: ui.font; font.pixelSize: 12 }
+                    Text { text: "sfondo e colori del desktop"; color: ui.muted; font.family: ui.font; font.pixelSize: 12 }
                 }
             }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: !wl.d ? "Sto guardando il tuo desktop…"
-                    : "Ho guardato il tuo desktop: questi sono i colori che usi adesso. Saranno il punto di partenza (e i «colori iniziali» a cui puoi sempre tornare)."
+                    : "Ho guardato il tuo desktop: questi sono i colori che usi adesso. Saranno il punto di partenza (la palette «Iniziale», a cui puoi sempre tornare)."
                 color: ui.fg; font.family: ui.font; font.pixelSize: 12
             }
             Row {

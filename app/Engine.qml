@@ -24,6 +24,7 @@ QtObject {
     property bool firstRun: false       // nessun tema ancora: si parte dai colori trovati sul desktop
     property var detected: null         // { theme, found, will_manage } letti al primo avvio
     property var managedKinds: []       // programmi collegati (hyprland, kitty, mako…)
+    property var original: null         // "colori iniziali" (quelli del desktop al primo avvio)
     signal applied()
     signal reverted()
 
@@ -46,6 +47,7 @@ QtObject {
                 try {
                     const d = JSON.parse(text)
                     eng.managedKinds = d.managed_kinds || []
+                    eng.original = d.original || null
                     eng.firstRun = !!d.first_run
                     if (eng.firstRun) { eng.detectProc.running = true; return }
                     const wasClean = !eng.dirty
@@ -103,12 +105,18 @@ QtObject {
     // ── modifiche alla bozza ───────────────────────────
     // la bozza viaggia come argomento del motore: nessun file intermedio da aspettare
 
-    function setColor(role, hex) {
-        if (!draft || !validHex(hex)) return false
+    function setColor(role, hex) { const m = {}; m[role] = hex; return setColors(m) }
+    // più colori insieme (es. una palette): tutto o niente, poi le sfumature
+    function setColors(map) {
+        if (!draft || !map) return false
         const d = clone(draft)
-        if (role.indexOf("terminal.") === 0) d.terminal[role.slice(9)] = hex.toUpperCase()
-        else if (role in d.colors) d.colors[role] = hex.toUpperCase()
-        else return false
+        for (const role in map) {
+            const hex = map[role]
+            if (!validHex(hex)) return false
+            if (role.indexOf("terminal.") === 0 && (role.slice(9) in d.terminal)) d.terminal[role.slice(9)] = hex.toUpperCase()
+            else if (role in d.colors) d.colors[role] = hex.toUpperCase()
+            else return false
+        }
         draft = d
         deriveProc.command = [engine, "derive", JSON.stringify(d)]
         deriveProc.running = true        // le sfumature seguono il colore principale

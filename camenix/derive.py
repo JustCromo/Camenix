@@ -55,4 +55,8 @@ def derive(colors, previous=None):
     for derived, base in FAMILY.items():
         if colors.get(base) != previous.get(base):
             out[derived] = shade(defaults[base], defaults[derived], colors[base])
+        elif derived in previous:
+            # colore principale tornato com'era (es. "palette in uso" dopo un'altra palette):
+            # tornano anche le sue sfumature, non restano quelle della prova di prima
+            out[derived] = previous[derived]
     return out

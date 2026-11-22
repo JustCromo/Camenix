@@ -37,7 +37,7 @@ Rectangle {
         source: pv.wall
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        sourceSize.width: 900
+        sourceSize.width: 1400
     }
     MultiEffect {                          // blocco: stesso sfondo sfocato
         anchors.fill: parent
@@ -51,7 +51,7 @@ Rectangle {
     Text {
         visible: pv.wall === ""
         anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
-        text: "nessuno sfondo: scegline uno in ① Sfondo"
+        text: "nessuno sfondo: scegline uno qui sotto"
         color: ui.muted
         font.family: ui.font
         font.pixelSize: 11
@@ -137,10 +137,4 @@ Rectangle {
         }
     }
 
-    Rectangle {
-        anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 10
-        width: lbl2.implicitWidth + 16; height: 20; radius: 10
-        color: Qt.rgba(0.12, 0.08, 0.16, 0.65)
-        Text { id: lbl2; anchors.centerIn: parent; text: pv.label; color: "white"; font.family: ui.font; font.pixelSize: 10 }
-    }
 }
