@@ -4,7 +4,7 @@ import locale
 import os
 import sys
 
-from camenix import __version__, apply as ap, detect, files, theme as th, wallpaper as wpm
+from camenix import __version__, apply as ap, derive as dv, detect, files, safety, theme as th, wallpaper as wpm
 from camenix.i18n import t
 
 USAGE = 2
@@ -268,7 +268,7 @@ def cmd_forget(args, out, err):
 
 
 def _draft_arg(args, err):
-    pos = [a for a in args if a != "--json"]
+    pos = [a for a in args if a not in ("--json", "--guard")]
     return pos[0] if len(pos) == 1 else None
 
 
@@ -287,7 +287,40 @@ def cmd_apply_draft(args, out, err):
     except (TypeError, ValueError):
         print(json.dumps({"ok": False, "conflicts": [], "errors": [{"file": "draft", "why": "invalid"}]}))
         return USAGE
-    return _print_report(ap.change_theme(draft), args + ["--json"], out, err, changed=True)
+    # le sfumature le ricalcola sempre il motore: non importa se l'app era ancora a metà di un calcolo
+    current, _, _ = th.read()
+    draft["colors"] = dv.derive(draft["colors"], current["colors"])
+    rep = ap.change_theme(draft)
+    if "--guard" in args and rep.as_dict()["ok"]:
+        safety.arm()                                   # paracadute che non dipende dall'app
+    return _print_report(rep, args + ["--json"], out, err, changed=True)
+
+
+def cmd_keep(args, out, err):
+    print(json.dumps({"ok": True, "was_pending": safety.keep()}))
+    return OK
+
+
+def cmd_revert(args, out, err):
+    """"Torna com'era" durante l'attesa: prende l'attesa (così il guardiano non rifà) e torna indietro."""
+    if not safety.keep():
+        print(json.dumps({"ok": False, "why": "nothing"}))
+        return PROBLEM
+    return cmd_undo(["--json"], out, err)
+
+
+def cmd_guard(args, out, err):
+    pos = [a for a in args if not a.startswith("--")]
+    return OK if pos and safety.guard(pos[0], ap.undo) else PROBLEM
+
+
+def cmd_snapshot(args, out, err):
+    if "--clean" in args:
+        print(json.dumps({"ok": True, "removed": safety.clean()}))
+        return OK
+    res = safety.snapshot()
+    print(json.dumps(res))
+    return OK if res["ok"] else PROBLEM
 
 
 def cmd_import(args, out, err):
@@ -339,7 +372,8 @@ def cmd_lockscreen(args, out, err):
     return OK
 
 
-COMMANDS = {"lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
+COMMANDS = {"keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
+            "lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
             "set": cmd_set, "wallpaper": cmd_wallpaper, "undo": cmd_undo, "adopt": cmd_adopt, "forget": cmd_forget}

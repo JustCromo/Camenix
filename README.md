@@ -14,7 +14,7 @@ Apri **Camenix** dal menu delle applicazioni (o con il comando `camenix`).
 - **Palette**: un clic e cambiano tutti i colori principali insieme. *In uso* è quella sul desktop adesso, *Sfondo chiaro* e *Sfondo scuro* sono ricavate dai colori del tuo sfondo.
 - **Colori**: sei cerchi (sfondo e testo delle isole, accento, i due colori del bordo delle finestre, terminale); *Altri colori* apre i restanti. Passando il mouse su un colore, nell'anteprima si illumina dove compare; cliccandolo si apre il selettore. Le sfumature seguono da sole.
 - **Selettore**: anello delle tinte con il quadrato saturazione/luminosità, cursori **R G B**, campo `#hex`, colori dello sfondo e del tema, *prima/dopo* e, per testo e sfondo, il controllo di leggibilità. Invio conferma solo un `#hex` completo.
-- **Applica ✓**: porta l'anteprima sul desktop (con un piccolo effetto sull'anteprima) e chiede *"Tenere il nuovo tema?"*: se non premi **Tieni** entro 15 secondi torna tutto com'era. *Annulla* rimette l'anteprima uguale al desktop.
+- **Applica ✓**: porta l'anteprima sul desktop con una **dissolvenza** di tutto lo schermo (serve `grim`; senza, si applica e basta) e chiede *"Tenere il nuovo tema?"*. Se non premi **Tieni** entro 15 secondi torna tutto com'era, **anche se nel frattempo chiudi l'app**: ci pensa un piccolo guardiano del motore. *Annulla* rimette l'anteprima uguale al desktop.
 - **☀ / ☾**: tema chiaro o scuro dell'app (ricordato). L'app ha colori suoi, così resta leggibile qualunque tema tu scelga.
 
 Se un file di config è stato modificato a mano, Camenix **non applica niente** e te lo mostra: con *Tieni le mie modifiche* il file viene ricollegato con le tue modifiche e si riprova.

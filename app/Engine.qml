@@ -126,16 +126,26 @@ QtObject {
             else return false
         }
         draft = d
-        deriveProc.command = [engine, "derive", JSON.stringify(d)]
-        deriveProc.running = true        // le sfumature seguono il colore principale
+        runDerive()                      // le sfumature seguono il colore principale
         return true
     }
+    // un calcolo alla volta; se nel frattempo cambia qualcosa, si ricalcola con la bozza più recente
+    property bool derivePending: false
+    property string deriveFor: ""
+    function baseKey(d) { return d ? JSON.stringify(baseRoles.map(k => d.colors[k])) : "" }
+    function runDerive() {
+        if (deriveProc.running) { derivePending = true; return }
+        deriveFor = baseKey(draft)
+        deriveProc.command = [engine, "derive", JSON.stringify(draft)]
+        deriveProc.running = true
+    }
     property Process deriveProc: Process {
+        onExited: if (eng.derivePending) { eng.derivePending = false; eng.runDerive() }
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     const d = JSON.parse(text)
-                    // risposta di una modifica superata (es. due colori cambiati di fila): si ignora
+                    if (eng.baseKey(eng.draft) !== eng.deriveFor) return     // risposta superata: arriva quella nuova
                     if (d && d.colors && JSON.stringify(d.colors) !== JSON.stringify(eng.draft.colors)) {
                         const mine = eng.draft.colors, keep = {}
                         for (const k in mine) keep[k] = mine[k]
@@ -181,16 +191,24 @@ QtObject {
     }
 
     // ── applica, paracadute, annulla ───────────────────
+    // con la dissolvenza: prima la foto dello schermo, poi si applica, poi la foto sfuma via
+    property var fader: null
     function apply() {
         if (busy || !draft) return
         busy = true; error = ""; conflicts = []
-        applyProc.command = [engine, "apply-draft", JSON.stringify(draft), "--json"]
+        if (fader && fader.available) fader.begin(eng.doApply)
+        else doApply()
+    }
+    function doApply() {
+        // --guard: il motore lancia un guardiano che torna indietro da solo se nessuno dice "tieni"
+        applyProc.command = [engine, "apply-draft", JSON.stringify(draft), "--json", "--guard"]
         applyProc.running = true
     }
     property Process applyProc: Process {
         stdout: StdioCollector {
             onStreamFinished: {
                 eng.busy = false
+                if (eng.fader) eng.fader.finish()
                 let r = null
                 try { r = JSON.parse(text) } catch (e) { eng.error = "Il motore non ha risposto."; return }
                 if (r.ok) { eng.awaitingKeep = true; eng.applied() }
@@ -199,14 +217,15 @@ QtObject {
             }
         }
     }
-    function keep() { awaitingKeep = false }
+    function keep() { awaitingKeep = false; keepProc.running = true }
+    property Process keepProc: Process { command: [eng.engine, "keep"] }
     function revert() {
         awaitingKeep = false
         busy = true
         undoProc.running = true
     }
     property Process undoProc: Process {
-        command: [eng.engine, "undo", "--json"]
+        command: [eng.engine, "revert", "--json"]
         stdout: StdioCollector { onStreamFinished: { eng.busy = false; eng.draft = null; eng.reverted() } }
     }
     // "tieni le mie modifiche": il file modificato a mano diventa il nuovo modello, poi riprova

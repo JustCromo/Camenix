@@ -5,7 +5,8 @@ import Quickshell
 import Quickshell.Io
 
 ShellRoot {
-    Engine { id: eng }
+    Engine { id: eng; fader: fader }
+    Fader { id: fader; engine: eng.engine }
 
     FloatingWindow {
         id: win

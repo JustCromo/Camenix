@@ -63,6 +63,8 @@ class TestPicker(unittest.TestCase):
         self.assertEqual(s["applied"], ["#3FE0D0", "#FF00AA"])
         self.assertTrue(s["hypr_border"])                                # arrivato fino a Hyprland
         self.assertFalse(s["awaiting"])                                  # "Tieni" chiude il paracadute
+        self.assertEqual(s["fader"], [1, 1])                             # dissolvenza: foto prima, sfuma dopo
+        self.assertFalse(s["pending_after_keep"])                        # e il guardiano non tornerà indietro
         self.assertEqual(s["kept"], "#3FE0D0")
 
 

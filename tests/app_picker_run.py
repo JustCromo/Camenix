@@ -23,7 +23,9 @@ qs_mock.register(os.path.join(ROOT, "app"))
 wrap = os.path.join(ROOT, "app", "__test_wrap_picker.qml")
 with open(wrap, "w") as f:
     f.write('import QtQuick\nItem { width: 1180; height: 760\n'
-            '  Engine { id: e; objectName: "eng" }\n  Main { objectName: "main"; anchors.fill: parent; eng: e }\n}\n')
+            '  QtObject { id: ff; objectName: "fader"; property bool available: true; property int begun: 0\n'
+            '    property int finished: 0; function begin(fn) { begun++; fn() } function finish() { finished++ } }\n'
+            '  Engine { id: e; objectName: "eng"; fader: ff }\n  Main { objectName: "main"; anchors.fill: parent; eng: e }\n}\n')
 view = QQuickView()
 errors = []
 view.engine().warnings.connect(lambda ws: errors.extend(w.toString() for w in ws))
@@ -254,6 +256,8 @@ def applied():
 @step(800)
 def done():
     S["awaiting"] = obj("eng").property("awaitingKeep")
+    S["fader"] = [obj("fader").property("begun"), obj("fader").property("finished")]
+    S["pending_after_keep"] = os.path.exists(os.path.expanduser("~/.config/camenix/pending.json"))
     S["kept"] = theme_file()["colors"]["accent"]
     R["errors"] = errors
     with open(os.path.join(out, "report.json"), "w") as f:
