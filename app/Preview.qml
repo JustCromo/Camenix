@@ -7,6 +7,10 @@ Rectangle {
     property var ui
     property var theme: null              // bozza
     property bool lock: false
+    property var lockInfo: null           // com'è fatta la schermata di blocco vera (hyprlock.conf)
+    property string user: ""
+    readonly property bool realLock: !!lockInfo && lockInfo.found
+    readonly property var bg: realLock && lockInfo.background ? lockInfo.background : null
     property var highlight: []            // zone da illuminare (passando sopra un colore)
     function hl(z) { return highlight.indexOf(z) >= 0 }
     property string label: lock ? "Blocco schermo" : "Scrivania"
@@ -44,9 +48,11 @@ Rectangle {
         source: img
         visible: pv.lock
         blurEnabled: true
-        blur: 1.0
+        // come hyprlock: più passaggi e più grandezza = più sfocato; luminosità e vivacità dal file
+        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size / 21) : 1.0
         blurMax: 48
-        brightness: -0.03
+        brightness: pv.bg ? Math.max(-1, Math.min(1, pv.bg.brightness - 1)) : -0.03
+        saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy)) : 0
     }
     Text {
         visible: pv.wall === ""
@@ -121,8 +127,17 @@ Rectangle {
     }
 
     // ── blocco: orologio e campo password ──────────────
-    Column {
-        visible: pv.lock && !!pv.theme
+    LockView {
+        anchors.fill: parent
+        visible: pv.lock && !!pv.theme && pv.realLock
+        info: pv.lockInfo
+        theme: pv.theme
+        user: pv.user
+        font: ui.font
+        Glow { on: pv.hl("lock") || pv.hl("clock"); r: 18; anchors.margins: 8 }
+    }
+    Column {                                 // senza hyprlock.conf: un blocco generico
+        visible: pv.lock && !!pv.theme && !pv.realLock
         anchors.centerIn: parent
         spacing: 8
         Text { anchors.horizontalCenter: parent.horizontalCenter; text: "10:32"; color: pv.a(pv.c.textAlt || "#2B2236", 0.93); font.family: ui.font; font.pixelSize: 34; font.weight: Font.ExtraBold

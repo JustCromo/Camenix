@@ -25,6 +25,13 @@ QtObject {
     property var detected: null         // { theme, found, will_manage } letti al primo avvio
     property var managedKinds: []       // programmi collegati (hyprland, kitty, mako…)
     property var original: null         // "colori iniziali" (quelli del desktop al primo avvio)
+    property var lockInfo: null         // com'è fatta la schermata di blocco (per l'anteprima)
+    readonly property string user: home.split("/").pop()
+    function readLock() { if (!lockProc.running) lockProc.running = true }
+    property Process lockProc: Process {
+        command: [eng.engine, "lockscreen", "--json"]
+        stdout: StdioCollector { onStreamFinished: { try { eng.lockInfo = JSON.parse(text) } catch (e) { eng.lockInfo = null } } }
+    }
     signal applied()
     signal reverted()
 
@@ -48,6 +55,7 @@ QtObject {
                     const d = JSON.parse(text)
                     eng.managedKinds = d.managed_kinds || []
                     eng.original = d.original || null
+                    eng.readLock()
                     eng.firstRun = !!d.first_run
                     if (eng.firstRun) { eng.detectProc.running = true; return }
                     const wasClean = !eng.dirty

@@ -8,12 +8,13 @@
 
 Apri **Camenix** dal menu delle applicazioni (o con il comando `camenix`).
 
-- **Primo avvio**: Camenix guarda il desktop e ti mostra i colori che usi già (bordi di Hyprland, kitty, notifiche di mako, sfondo) e cosa collegherà. Finché non premi **Inizia** non tocca niente. Quei colori diventano il punto di partenza (la palette *Iniziale*): Camenix non impone un suo tema.
+- **Primo avvio**: Camenix guarda il desktop e ti mostra i colori che usi già (bordi di Hyprland, kitty, notifiche di mako, sfondo) e cosa collegherà. Finché non premi **Inizia** non tocca niente. Quei colori diventano il punto di partenza: Camenix non impone un suo tema.
 - **Sfondo**: *Cambia…* per scegliere un PNG, JPEG o WebP (Camenix ne tiene una copia). *Stesso sfondo nel blocco schermo* acceso: il blocco usa lo stesso sfondo, sfocato; spento: scegli un'altra immagine.
-- **Palette**: un clic e cambiano tutti i colori principali insieme. *In uso* è quella sul desktop adesso, *Iniziale* quella di partenza, *Sfondo chiaro* e *Sfondo scuro* sono ricavate dai colori del tuo sfondo.
+- **Anteprima**: ha le proporzioni del tuo schermo. Il blocco schermo è disegnato dalla tua `hyprlock.conf` (posizione e grandezza di orologio, data e campo password, colori, sfocatura), quindi assomiglia a quello vero.
+- **Palette**: un clic e cambiano tutti i colori principali insieme. *In uso* è quella sul desktop adesso, *Sfondo chiaro* e *Sfondo scuro* sono ricavate dai colori del tuo sfondo.
 - **Colori**: sei cerchi (sfondo e testo delle isole, accento, i due colori del bordo delle finestre, terminale); *Altri colori* apre i restanti. Passando il mouse su un colore, nell'anteprima si illumina dove compare; cliccandolo si apre il selettore. Le sfumature seguono da sole.
 - **Selettore**: anello delle tinte con il quadrato saturazione/luminosità, cursori **R G B**, campo `#hex`, colori dello sfondo e del tema, *prima/dopo* e, per testo e sfondo, il controllo di leggibilità. Invio conferma solo un `#hex` completo.
-- **Applica ✓**: porta l'anteprima sul desktop e chiede *"Tenere il nuovo tema?"*: se non premi **Tieni** entro 15 secondi torna tutto com'era. *Annulla* rimette l'anteprima uguale al desktop.
+- **Applica ✓**: porta l'anteprima sul desktop (con un piccolo effetto sull'anteprima) e chiede *"Tenere il nuovo tema?"*: se non premi **Tieni** entro 15 secondi torna tutto com'era. *Annulla* rimette l'anteprima uguale al desktop.
 - **☀ / ☾**: tema chiaro o scuro dell'app (ricordato). L'app ha colori suoi, così resta leggibile qualunque tema tu scelga.
 
 Se un file di config è stato modificato a mano, Camenix **non applica niente** e te lo mostra: con *Tieni le mie modifiche* il file viene ricollegato con le tue modifiche e si riprova.
@@ -53,7 +54,7 @@ Per le isole Quickshell: copia `integrations/quickshell/Theme.qml` nella cartell
 
 ## Per sviluppatori
 
-L'app (`app/`, QML per Quickshell) non scrive mai le config da sola: passa sempre dal **motore** `bin/camenix-engine` (Python), che valida tutto e risponde in JSON (`status`, `detect`, `first-run`, `apply-draft`, `derive`, `import-wallpaper`, `reset-colors`, `undo`, `setup`, `adopt`, `forget`, `wallpaper`, `install`; codici di uscita `0` ok, `1` problema, `2` uso errato).
+L'app (`app/`, QML per Quickshell) non scrive mai le config da sola: passa sempre dal **motore** `bin/camenix-engine` (Python), che valida tutto e risponde in JSON (`status`, `detect`, `first-run`, `lockscreen`, `apply-draft`, `derive`, `import-wallpaper`, `reset-colors`, `undo`, `setup`, `adopt`, `forget`, `wallpaper`, `install`; codici di uscita `0` ok, `1` problema, `2` uso errato).
 
 ```bash
 python3 -m unittest discover -s tests -t .

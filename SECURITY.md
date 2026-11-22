@@ -11,6 +11,7 @@
 - **Sfondi**: accettati solo file con l'intestazione di un vero PNG, JPEG o WebP, fino a 64 MB. L'immagine scelta viene copiata in `~/.config/camenix/wallpapers` (0700).
 - **L'app non scrive le config**: salva solo le sue preferenze (`app.json`). La bozza passa al motore come argomento (mai tramite shell), e il motore la tratta come input non fidato, con le stesse regole del tema.
 - **Primo avvio**: la lettura dei colori del desktop (`detect`) non scrive niente e usa le stesse regole dei file sicuri (solo file tuoi dentro la home, al massimo 1 MB, `include` di kitty seguiti per due livelli e mai fuori dalla home). Le config vengono collegate solo dopo «Inizia», con copia di sicurezza; se un tema esiste già il primo avvio si rifiuta di sovrascriverlo. I «colori iniziali» (`original.json`) vengono riletti con gli stessi controlli del tema.
+- **Anteprima del blocco**: `lockscreen` legge `hyprlock.conf` (o il suo modello) con le regole dei file sicuri e restituisce solo numeri limitati, colori e testi brevi senza markup; i comandi `cmd[...]` del file non vengono mai eseguiti né mostrati, e l'app mostra i testi come testo semplice.
 - **Selettore**: i colori dello sfondo vengono letti dall'app rimpicciolendo l'immagine già scelta; nessun file nuovo, nessuna rete.
 - **Paracadute**: dopo *Applica*, se non confermi entro 15 secondi il tema precedente viene ripristinato dallo storico.
 - **Voce di menu**: il file `.desktop` contiene solo percorsi assoluti; percorsi con caratteri speciali (spazi, `;`, `$`, apici…) vengono rifiutati.

@@ -16,7 +16,12 @@ Rectangle {
     color: ui.window
     border.width: 1.5
     border.color: ui.accent
-    onActiveChanged: if (active) { remaining = seconds; tick.restart() } else tick.stop()
+    onActiveChanged: if (active) { remaining = seconds; tick.restart(); pop.restart() } else tick.stop()
+    SequentialAnimation {                       // entra con un piccolo rimbalzo
+        id: pop
+        PropertyAction { target: toast; property: "scale"; value: 0.8 }
+        NumberAnimation { target: toast; property: "scale"; to: 1; duration: 380; easing.type: Easing.OutBack }
+    }
     Timer {
         id: tick
         interval: 1000; repeat: true

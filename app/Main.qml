@@ -83,7 +83,6 @@ Rectangle {
             out.push({ name: name, c: c })
         }
         add("In uso", pick(eng.current))
-        add("Iniziale", pick(eng.original))
         add("Sfondo chiaro", C.suggest(wallColors, false))
         add("Sfondo scuro", C.suggest(wallColors, true))
         return out
@@ -168,17 +167,35 @@ Rectangle {
             y: Math.max(0, (body.height - implicitHeight - 12) / 2)    // avanza spazio in altezza: tutto al centro
             topPadding: main.wide ? 12 : 4
 
-            // anteprima 16:9: da larga prende tutto lo spazio a sinistra; da stretta non spinge fuori i comandi
+            // anteprima con le proporzioni del tuo schermo: da larga prende lo spazio a sinistra,
+            // da stretta non spinge fuori i comandi; se avanza spazio resta centrata
+            Item {
+                id: previewBox
+                readonly property real aspect: main.eng.lockInfo && main.eng.lockInfo.screen ? main.eng.lockInfo.screen[0] / main.eng.lockInfo.screen[1] : 16 / 9
+                readonly property real maxW: main.wide ? content.width - controls.width - content.columnSpacing : content.width
+                readonly property real maxH: main.wide ? body.height - 36 : body.height - controls.implicitHeight - 46
+                width: maxW
+                height: preview.height
             Preview {
                 id: preview
                 ui: pal
-                width: main.wide ? content.width - controls.width - content.columnSpacing : content.width
-                height: main.wide ? Math.max(260, Math.min(width * 9 / 16, body.height - 36))
-                                  : Math.max(200, Math.min(width * 9 / 16, body.height - controls.implicitHeight - 46))
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.max(320, Math.min(previewBox.maxW, Math.max(200, previewBox.maxH) * previewBox.aspect))
+                height: width / previewBox.aspect
                 theme: main.eng.draft
                 highlight: main.hoverZones
+                lockInfo: main.eng.lockInfo
+                user: main.eng.user
                 lock: main.showLock || main.lockZonesOnly
-                Row {                                   // scrivania | blocco schermo
+                Rectangle {                             // effetto di "Applica": un'onda del nuovo accento
+                    id: wave
+                    z: 70
+                    anchors.centerIn: parent
+                    width: Math.hypot(parent.width, parent.height); height: width
+                    radius: width / 2
+                    color: main.hexOf("accent")
+                    opacity: 0; scale: 0
+                }                Row {                                   // scrivania | blocco schermo
                     anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12
                     z: 60
                     spacing: 6
@@ -196,6 +213,7 @@ Rectangle {
                         }
                     }
                 }
+            }
             }
 
             Column {
@@ -357,6 +375,18 @@ Rectangle {
             }
         }
     }
+
+    // Applica: l'anteprima fa un piccolo "pop" (come le finestre) e un'onda del nuovo accento la attraversa
+    ParallelAnimation {
+        id: applyFx
+        NumberAnimation { target: wave; property: "scale"; from: 0; to: 1; duration: 700; easing.type: Easing.OutCubic }
+        NumberAnimation { target: wave; property: "opacity"; from: 0.5; to: 0; duration: 700; easing.type: Easing.OutQuad }
+        SequentialAnimation {
+            NumberAnimation { target: preview; property: "scale"; to: 0.97; duration: 120; easing.type: Easing.OutQuad }
+            NumberAnimation { target: preview; property: "scale"; to: 1; duration: 450; easing.type: Easing.OutBack }
+        }
+    }
+    Connections { target: main.eng; function onApplied() { applyFx.restart() } }
 
     // ── barra in basso: stato e Applica ─────────────────
     Rectangle {

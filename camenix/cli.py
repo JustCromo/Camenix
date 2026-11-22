@@ -332,7 +332,14 @@ def cmd_first_run(args, out, err):
     return OK
 
 
-COMMANDS = {"detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
+def cmd_lockscreen(args, out, err):
+    """Com'è fatta la schermata di blocco (per l'anteprima). Non scrive niente."""
+    from camenix import lockscreen
+    print(json.dumps(lockscreen.info(ap.load_state(), th.config_dir()), ensure_ascii=False))
+    return OK
+
+
+COMMANDS = {"lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
             "set": cmd_set, "wallpaper": cmd_wallpaper, "undo": cmd_undo, "adopt": cmd_adopt, "forget": cmd_forget}

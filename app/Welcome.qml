@@ -46,7 +46,7 @@ Item {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: !wl.d ? "Sto guardando il tuo desktop…"
-                    : "Ho guardato il tuo desktop: questi sono i colori che usi adesso. Saranno il punto di partenza (la palette «Iniziale», a cui puoi sempre tornare)."
+                    : "Ho guardato il tuo desktop: questi sono i colori che usi adesso. Saranno il punto di partenza: Camenix non impone un suo tema."
                 color: ui.fg; font.family: ui.font; font.pixelSize: 12
             }
             Row {

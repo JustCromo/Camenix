@@ -135,3 +135,79 @@ class TestFirstRun(FakeHome):
 if __name__ == "__main__":
     import unittest
     unittest.main()
+
+
+class TestLockscreen(FakeHome):
+    IVAN = """
+general {
+    hide_cursor = true
+}
+$fg = rgba(342429ee)
+background {
+    path = /x.png
+    blur_passes = 3
+    blur_size = 7
+    brightness = 0.95
+}
+# Orologio
+label {
+    text = $TIME
+    color = $fg
+    font_size = 104
+    font_family = JetBrainsMono Nerd Font ExtraBold
+    position = 0, 210
+    halign = center
+    valign = center
+}
+label {
+    text = <b>ciao</b> $USER
+    color = rgb(10, 20, 30)
+    position = 5%, -10%
+}
+input-field {
+    size = 300, 52
+    outer_color = rgba(AEBEEEee) rgba({{cmx:accent}}ee) 45deg
+    inner_color = 0x40FBECF0
+    position = 0, -150
+}
+"""
+
+    def test_parse(self):
+        from camenix import lockscreen
+        d = lockscreen.parse(self.IVAN, (2000, 1000))
+        clock, user = d["labels"]
+        self.assertEqual(clock["kind"], "time")
+        self.assertEqual(clock["color"]["stops"][0], {"hex": "#342429", "a": 0.933})     # variabile $fg risolta
+        self.assertEqual((clock["font_size"], clock["position"], clock["bold"]), (104, [0, 210], True))
+        self.assertEqual(user["text"], "ciao $USER")                                     # niente markup
+        self.assertEqual(user["position"], [100, -100])                                  # percentuali
+        self.assertEqual(user["color"]["stops"][0]["hex"], "#0A141E")
+        f = d["inputs"][0]
+        self.assertEqual(f["outer"]["stops"][1], {"role": "accent", "a": 0.933})        # colore collegato al tema
+        self.assertEqual(f["outer"]["angle"], 45)
+        self.assertEqual(f["inner"]["stops"][0], {"hex": "#FBECF0", "a": 0.251})
+        self.assertEqual(d["background"]["blur_passes"], 3)
+
+    def test_hostile_config(self):
+        from camenix import lockscreen
+        evil = "label {\n text = cmd[update:1] rm -rf ~\n font_size = 1e308\n position = nan, inf\n color = rgba(999,999,999,9)\n}\n" * 50
+        evil += "input-field {\n size = -5, 99999999999\n outline_thickness = 1000\n}\n" + "}\n" * 20 + "x {\n" * 30
+        d = lockscreen.parse(evil)
+        self.assertLessEqual(len(d["labels"]), lockscreen.MAX_ITEMS)
+        lab = d["labels"][0]
+        self.assertEqual(lab["text"], "")                                             # i comandi non diventano testo
+        self.assertLessEqual(lab["font_size"], 400)
+        self.assertEqual(lab["color"]["stops"][0]["hex"], "#FFFFFF")                  # valori fuori scala limitati
+        self.assertLessEqual(d["inputs"][0]["outline"], 40)
+        json.dumps(d)                                                                  # sempre serializzabile
+
+    def test_info_reads_template_and_survives_missing_file(self):
+        from camenix import lockscreen
+        ap.setup()
+        d = lockscreen.info(ap.load_state(), th.config_dir())
+        self.assertTrue(d["found"])
+        self.assertEqual(d["screen"], [1920, 1080])                                    # hyprctl finto: ripiego
+        os.remove(self.p(".config/hypr/hyprlock.conf"))
+        self.assertFalse(lockscreen.info(ap.load_state(), th.config_dir())["found"])
+        os.symlink("/etc/passwd", self.p(".config/hypr/hyprlock.conf"))                # fuori dalla home
+        self.assertFalse(lockscreen.info({}, th.config_dir())["found"])
