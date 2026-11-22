@@ -21,7 +21,7 @@ Item {
             anchors.fill: parent; anchors.margins: 5
             radius: width / 2
             color: cc.hex
-            border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.18)
+            border.width: 1.5; border.color: ui.line          // si vede anche un colore uguale allo sfondo dell'app
         }
         scale: area.containsMouse ? 1.06 : 1
         Behavior on scale { NumberAnimation { duration: 120 } }

@@ -10,6 +10,8 @@ Rectangle {
     property bool more: false               // "Altri colori" aperto
     property var hoverZones: []             // zone dell'anteprima da illuminare
     property var wallColors: []             // colori principali dello sfondo (per le palette proposte)
+    // finestra larga: anteprima a sinistra e comandi a destra; stretta: uno sotto l'altro
+    readonly property bool wide: width >= 1280
 
     // colori dell'app: fissi (chiaro o scuro), non dipendono dal tema del desktop
     readonly property bool dark: eng.mode === "dark"
@@ -156,19 +158,23 @@ Rectangle {
         contentHeight: content.implicitHeight + 24
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        Column {
+        Grid {
             id: content
-            width: Math.min(body.width - 48, 1080)          // su schermi larghi resta centrato e compatto
+            columns: main.wide ? 2 : 1
+            columnSpacing: 32
+            rowSpacing: 18
+            width: Math.min(body.width - 48, main.wide ? 1760 : 1080)
             x: (body.width - width) / 2
-            topPadding: 4
-            spacing: 18
+            y: Math.max(0, (body.height - implicitHeight - 12) / 2)    // avanza spazio in altezza: tutto al centro
+            topPadding: main.wide ? 12 : 4
 
-            // anteprima: 16:9, ma mai così alta da spingere fuori i comandi
+            // anteprima 16:9: da larga prende tutto lo spazio a sinistra; da stretta non spinge fuori i comandi
             Preview {
                 id: preview
                 ui: pal
-                width: parent.width
-                height: Math.max(200, Math.min(width * 9 / 16, body.height - controls.implicitHeight - 46))
+                width: main.wide ? content.width - controls.width - content.columnSpacing : content.width
+                height: main.wide ? Math.max(260, Math.min(width * 9 / 16, body.height - 36))
+                                  : Math.max(200, Math.min(width * 9 / 16, body.height - controls.implicitHeight - 46))
                 theme: main.eng.draft
                 highlight: main.hoverZones
                 lock: main.showLock || main.lockZonesOnly
@@ -194,20 +200,27 @@ Rectangle {
 
             Column {
                 id: controls
-                width: parent.width
-                spacing: 16
+                width: main.wide ? 540 : content.width
+                spacing: 18
+                readonly property bool stacked: width < 600          // poco spazio: titoletti sopra, non a sinistra
+                readonly property real inner: stacked ? width : width - 110
 
                 component Label: Text {
-                    width: 110
+                    width: controls.stacked ? controls.width : 110
                     color: pal.muted
                     font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold
                 }
 
                 // Sfondo
-                Row {
-                    spacing: 0
-                    Label { text: "Sfondo"; anchors.verticalCenter: parent.verticalCenter }
-                    Row {
+                Grid {
+                    columns: controls.stacked ? 1 : 2
+                    rowSpacing: 8
+                    verticalItemAlignment: Grid.AlignVCenter
+                    Label { text: "Sfondo" }
+                    Flow {
+                        width: controls.inner
+                        spacing: 12
+                        Row {
                         spacing: 12
                         Rectangle {
                             width: 112; height: 63; radius: 10; clip: true
@@ -229,6 +242,9 @@ Rectangle {
                             Text { anchors.centerIn: parent; visible: thumb.src === ""; text: "nessuno"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
                         }
                         Btn { anchors.verticalCenter: parent.verticalCenter; ui: pal; text: "Cambia…"; onClicked: main.eng.chooseWallpaper("home") }
+                        }
+                        Item {
+                        width: sameLock.width; height: 63
                         Rectangle {                     // blocco: stesso sfondo sì/no
                             id: sameLock
                             anchors.verticalCenter: parent.verticalCenter
@@ -248,15 +264,18 @@ Rectangle {
                             MouseArea { id: sameArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                         onClicked: { main.showLock = true; if (sameLock.on) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) } }
                         }
+                        }
                     }
                 }
 
                 // Palette
-                Row {
-                    spacing: 0
-                    Label { text: "Palette"; anchors.verticalCenter: parent.verticalCenter }
+                Grid {
+                    columns: controls.stacked ? 1 : 2
+                    rowSpacing: 8
+                    verticalItemAlignment: Grid.AlignVCenter
+                    Label { text: "Palette" }
                     Flow {
-                        width: controls.width - 110
+                        width: controls.inner
                         spacing: 10
                         Repeater {
                             model: main.palettes
@@ -288,13 +307,14 @@ Rectangle {
                 }
 
                 // Colori
-                Row {
-                    spacing: 0
-                    Label { text: "Colori"; y: 16 }
+                Grid {
+                    columns: controls.stacked ? 1 : 2
+                    rowSpacing: 8
+                    Label { text: "Colori"; topPadding: controls.stacked ? 0 : 16 }
                     Column {
                         spacing: 4
                         Flow {
-                            width: controls.width - 110
+                            width: controls.inner
                             spacing: 6
                             Repeater {
                                 model: main.mainColors
@@ -320,7 +340,7 @@ Rectangle {
                         }
                         Flow {
                             visible: main.more
-                            width: controls.width - 110
+                            width: controls.inner
                             spacing: 6
                             Repeater {
                                 model: main.otherColors
