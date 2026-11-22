@@ -5,11 +5,10 @@ Item {
     id: wl
     property var ui
     property var eng
-    property var kindNames: ({})
     readonly property var d: eng.detected
     readonly property var colors: d ? [
-        { k: "glass", t: "Sfondo isole" }, { k: "text", t: "Testo" }, { k: "accent", t: "Evidenziato" },
-        { k: "borderFrom", t: "Bordo inizio" }, { k: "borderTo", t: "Bordo fine" }, { k: "terminal", t: "Terminale" }
+        { k: "glass", t: "color.glass" }, { k: "text", t: "color.text" }, { k: "accent", t: "color.accent" },
+        { k: "borderFrom", t: "welcome.borderStart" }, { k: "borderTo", t: "welcome.borderEnd" }, { k: "terminal", t: "color.terminal" }
     ] : []
     readonly property var kinds: {
         if (!d) return []
@@ -39,14 +38,14 @@ Item {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
-                    Text { text: "Benvenuto in Camenix"; color: ui.fg; font.family: ui.font; font.pixelSize: 20; font.weight: Font.ExtraBold }
-                    Text { text: "sfondo e colori del desktop"; color: ui.muted; font.family: ui.font; font.pixelSize: 12 }
+                    Text { text: wl.eng.tr("welcome.title"); color: ui.fg; font.family: ui.font; font.pixelSize: 20; font.weight: Font.ExtraBold }
+                    Text { text: wl.eng.tr("app.tagline"); color: ui.muted; font.family: ui.font; font.pixelSize: 12 }
                 }
             }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
-                text: !wl.d ? "Sto guardando il tuo desktop…"
-                    : "Ho guardato il tuo desktop: questi sono i colori che usi adesso. Saranno il punto di partenza: Camenix non impone un suo tema."
+                text: !wl.d ? wl.eng.tr("welcome.looking")
+                    : wl.eng.tr("welcome.found")
                 color: ui.fg; font.family: ui.font; font.pixelSize: 12
             }
             Row {
@@ -64,14 +63,14 @@ Item {
                             color: !wl.d ? "transparent" : parent.modelData.k === "terminal" ? wl.d.theme.terminal.background : wl.d.theme.colors[parent.modelData.k]
                             border.width: 1; border.color: ui.line
                         }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: parent.modelData.t; color: ui.muted; font.family: ui.font; font.pixelSize: 10 }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: wl.eng.tr(parent.modelData.t); color: ui.muted; font.family: ui.font; font.pixelSize: 10 }
                     }
                 }
             }
             Text {
                 visible: !!wl.d
                 width: parent.width; wrapMode: Text.WordWrap
-                text: wl.kinds.length ? "Camenix si occuperà di:" : "Non ho trovato config da collegare: potrai comunque cambiare lo sfondo."
+                text: wl.kinds.length ? wl.eng.tr("welcome.manage") : wl.eng.tr("welcome.none")
                 color: ui.fg; font.family: ui.font; font.pixelSize: 12; font.weight: Font.Bold
             }
             Flow {
@@ -84,22 +83,22 @@ Item {
                         required property string modelData
                         width: kt.implicitWidth + 22; height: 28; radius: 14
                         color: ui.panel; border.width: 1; border.color: ui.line
-                        Text { id: kt; anchors.centerIn: parent; text: parent.modelData === "wallpaper" ? "Sfondo" : (wl.kindNames[parent.modelData] || parent.modelData)
+                        Text { id: kt; anchors.centerIn: parent; text: wl.eng.tr("kind." + parent.modelData)
                                color: ui.fg; font.family: ui.font; font.pixelSize: 11 }
                     }
                 }
             }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
-                text: "Prima di cambiare un file ne salvo una copia in ~/.config/camenix/backups. Finché non premi «Inizia» non tocco niente."
+                text: wl.eng.tr("welcome.safe")
                 color: ui.muted; font.family: ui.font; font.pixelSize: 11
             }
             Text { visible: wl.eng.error !== ""; width: parent.width; wrapMode: Text.WordWrap; text: wl.eng.error; color: ui.bad; font.family: ui.font; font.pixelSize: 11 }
             Row {
                 anchors.right: parent.right
                 spacing: 10
-                Btn { ui: wl.ui; text: "Esci"; onClicked: Qt.quit() }
-                Btn { objectName: "startBtn"; ui: wl.ui; text: wl.eng.busy ? "Preparo…" : "Inizia →"; primary: true
+                Btn { ui: wl.ui; text: wl.eng.tr("welcome.quit"); onClicked: Qt.quit() }
+                Btn { objectName: "startBtn"; ui: wl.ui; text: wl.eng.busy ? wl.eng.tr("welcome.starting") : wl.eng.tr("welcome.start"); primary: true
                       enabledBtn: !!wl.d && !wl.eng.busy; onClicked: wl.eng.start() }
             }
         }

@@ -146,7 +146,7 @@ Item {
                             onPositionChanged: (m) => { if (pressed) handle(m.x, m.y, false) }
                         }
                     }
-                    Text { text: "Colori del tema"; color: ui.muted; font.family: ui.font; font.pixelSize: 11 }
+                    Text { text: ed.eng ? ed.eng.tr("editor.themeColors") : ""; color: ui.muted; font.family: ui.font; font.pixelSize: 11 }
                     Flow {
                         width: pk.width
                         spacing: 7
@@ -164,9 +164,9 @@ Item {
                     Row {
                         spacing: 10
                         Rectangle { width: (parent.parent.width - 10) / 2; height: 64; radius: 14; color: ed.startHex; border.width: 1; border.color: ui.line
-                            Text { anchors.centerIn: parent; text: "prima"; color: ed.eng && ed.eng.contrast(ed.startHex, "#FFFFFF") > 3 ? "white" : "#1E1528"; font.family: ui.font; font.pixelSize: 11 } }
+                            Text { anchors.centerIn: parent; text: ed.eng ? ed.eng.tr("editor.before") : ""; color: ed.eng && ed.eng.contrast(ed.startHex, "#FFFFFF") > 3 ? "white" : "#1E1528"; font.family: ui.font; font.pixelSize: 11 } }
                         Rectangle { width: (parent.parent.width - 10) / 2; height: 64; radius: 14; color: ed.valid ? ed.hex : ed.startHex; border.width: 2; border.color: ui.accent2
-                            Text { anchors.centerIn: parent; text: "dopo"; color: ed.eng && ed.eng.contrast(ed.valid ? ed.hex : ed.startHex, "#FFFFFF") > 3 ? "white" : "#1E1528"; font.family: ui.font; font.pixelSize: 11 } }
+                            Text { anchors.centerIn: parent; text: ed.eng ? ed.eng.tr("editor.after") : ""; color: ed.eng && ed.eng.contrast(ed.valid ? ed.hex : ed.startHex, "#FFFFFF") > 3 ? "white" : "#1E1528"; font.family: ui.font; font.pixelSize: 11 } }
                     }
                     ColorChannel { objectName: "chanR"; ui: ed.ui; current: ed.hex; width: parent.width; name: "R"; value: ed.rgb.r; from: C.rgbToHex(0, ed.rgb.g, ed.rgb.b); to: C.rgbToHex(255, ed.rgb.g, ed.rgb.b); onMoved: (v) => ed.fromRgb(v, ed.rgb.g, ed.rgb.b) }
                     ColorChannel { ui: ed.ui; current: ed.hex; width: parent.width; name: "G"; value: ed.rgb.g; from: C.rgbToHex(ed.rgb.r, 0, ed.rgb.b); to: C.rgbToHex(ed.rgb.r, 255, ed.rgb.b); onMoved: (v) => ed.fromRgb(ed.rgb.r, v, ed.rgb.b) }
@@ -202,10 +202,10 @@ Item {
                             border.width: 1
                             border.color: ratio >= 4.5 ? ui.ok : ui.bad
                             Text { id: cl; anchors.centerIn: parent; color: parent.ratio >= 4.5 ? ui.ok : ui.bad; font.family: ui.font; font.pixelSize: 11; font.weight: Font.Bold
-                                   text: (parent.ratio >= 4.5 ? "leggibile ✓ " : "poco leggibile ⚠ ") + parent.ratio.toFixed(1) + ":1" }
+                                   text: (ed.eng ? ed.eng.tr(parent.ratio >= 4.5 ? "editor.readable" : "editor.unreadable") : "") + " " + parent.ratio.toFixed(1) + ":1" }
                         }
                     }
-                    Text { visible: ed.wallpaper !== ""; text: "Dal tuo sfondo"; color: ui.muted; font.family: ui.font; font.pixelSize: 11 }
+                    Text { visible: ed.wallpaper !== ""; text: ed.eng ? ed.eng.tr("editor.fromWall") : ""; color: ui.muted; font.family: ui.font; font.pixelSize: 11 }
                     Row {
                         visible: ed.wallpaper !== ""
                         spacing: 10
@@ -237,8 +237,8 @@ Item {
             Row {
                 anchors.right: parent.right
                 spacing: 8
-                Btn { ui: ed.ui; text: "Annulla"; onClicked: ed.cancel() }
-                Btn { objectName: "useColor"; ui: ed.ui; text: "Usa colore"; primary: true; enabledBtn: ed.valid && ed.fieldOk; onClicked: if (ed.valid && ed.fieldOk) ed.done(ed.hex) }
+                Btn { ui: ed.ui; text: ed.eng ? ed.eng.tr("editor.cancel") : ""; onClicked: ed.cancel() }
+                Btn { objectName: "useColor"; ui: ed.ui; text: ed.eng ? ed.eng.tr("editor.use") : ""; primary: true; enabledBtn: ed.valid && ed.fieldOk; onClicked: if (ed.valid && ed.fieldOk) ed.done(ed.hex) }
             }
         }
     }

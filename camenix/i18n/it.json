@@ -75,8 +75,8 @@
   "forget.none": "{file} non era gestito da Camenix.",
   "forget.none_hint": "Per vedere i file gestiti: camenix-engine status",
   "status.managed": "File collegati al tema",
-  "warn.theme_changed": "Attenzione: il tema attuale non è quello di partenza ({n} colori diversi).",
-  "warn.theme_changed_hint": "I colori delle config vengono collegati solo se coincidono con il tema attuale: se hai fatto delle prove, prima riporta i colori originali (Ripristina colori nell'app).",
+  "warn.theme_changed": "Il tema in uso è diverso da quello predefinito ({n} colori).",
+  "warn.theme_changed_hint": "Nota: un colore della config viene collegato al tema solo se è uguale a un colore del tema in uso. Se il file usa già i colori di adesso va bene così; se mancano dei colori, applica prima dall'app il tema che quel file rispecchia.",
   "reset.done": "Colori originali ripristinati (lo sfondo resta quello scelto).",
   "import.bad": "Non è un'immagine utilizzabile: {path}.",
   "import.bad_hint": "Serve un file PNG, JPEG o WebP fino a 64 MB."

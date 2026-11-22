@@ -1,0 +1,21 @@
+{
+  "format": "camenix-theme",
+  "version": 1,
+  "name": "Gruvbox",
+  "colors": {
+    "glass": "#282828",
+    "text": "#EBDBB2",
+    "accent": "#FABD2F",
+    "accent2": "#FE8019",
+    "secondary": "#83A598",
+    "borderFrom": "#FABD2F",
+    "borderTo": "#FE8019",
+    "success": "#B8BB26",
+    "warning": "#FABD2F",
+    "error": "#FB4934"
+  },
+  "terminal": {
+    "background": "#282828",
+    "foreground": "#EBDBB2"
+  }
+}

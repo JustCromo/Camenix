@@ -46,7 +46,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(s["applied_accent"], "#3FE0D0")
         self.assertTrue(s["awaiting_keep"])                       # paracadute attivo
         self.assertEqual(s["reverted_accent"], "#FFD25A")        # Annulla torna indietro
-        self.assertEqual(s["prefs"], {"mode": "dark"})            # chiaro/scuro ricordato
+        self.assertEqual(s["prefs"], {"mode": "dark", "lang": "", "autoMatch": True})   # chiaro/scuro ricordato
         mako = pathlib.Path(home, ".config/mako/config").read_text()
         self.assertIn("#FFD25A", mako)                             # anche le config sono tornate
         shutil.rmtree(home, ignore_errors=True)

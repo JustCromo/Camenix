@@ -16,6 +16,34 @@ QtObject {
     property var draft: null            // tema in modifica (quello mostrato nell'anteprima)
     readonly property bool dirty: !!current && !!draft && JSON.stringify(current) !== JSON.stringify(draft)
     property string mode: "light"       // tema dell'app: "light" | "dark"
+    property bool autoMatch: true       // nuovo sfondo -> colori adattati
+    // lingua: quella scelta nell'app, altrimenti quella del sistema (italiano o, per tutto il resto, inglese)
+    readonly property string sysLang: {
+        const l = (Quickshell.env("LC_ALL") || Quickshell.env("LC_MESSAGES") || Quickshell.env("LANG") || "").slice(0, 2)
+        return l === "it" ? "it" : "en"
+    }
+    property string langPref: ""
+    readonly property string lang: langPref === "it" || langPref === "en" ? langPref : sysLang
+    property var texts: ({})
+    property FileView textsFile: FileView {
+        path: Quickshell.shellDir + "/i18n/" + eng.lang + ".json"
+        onLoaded: { try { eng.texts = JSON.parse(text()) } catch (e) { eng.texts = ({}) } }
+    }
+    // testo nella lingua attiva; {n}, {time}… vengono sostituiti con i valori passati
+    function tr(key, vals) {
+        let s = texts[key]
+        if (typeof s !== "string") return key
+        if (vals) for (const k in vals) s = s.split("{" + k + "}").join(String(vals[k]))
+        return s
+    }
+    property string lastApplied: ""     // ora dell'ultimo "Tieni"
+    property bool justReverted: false
+    property var presets: []
+    property Process presetsProc: Process {
+        command: [eng.engine, "presets", "--json"]
+        running: true
+        stdout: StdioCollector { onStreamFinished: { try { eng.presets = JSON.parse(text) } catch (e) { eng.presets = [] } } }
+    }
     property bool busy: false
     readonly property var baseRoles: ["text", "glass", "accent", "accent2", "secondary", "success", "warning", "error", "borderFrom", "borderTo"]
     property string error: ""           // messaggio da mostrare (una frase)
@@ -61,7 +89,7 @@ QtObject {
                     const wasClean = !eng.dirty
                     eng.current = d.theme
                     if (!eng.draft || wasClean) eng.draft = eng.clone(d.theme)
-                } catch (e) { eng.error = "Non riesco a leggere il tema." }
+                } catch (e) { eng.error = eng.tr("err.status") }
             }
         }
     }
@@ -77,7 +105,7 @@ QtObject {
                     eng.detected = d
                     eng.current = d.theme
                     eng.draft = eng.clone(d.theme)
-                } catch (e) { eng.error = "Non riesco a leggere i colori del desktop." }
+                } catch (e) { eng.error = eng.tr("err.detect") }
             }
         }
     }
@@ -89,7 +117,7 @@ QtObject {
                 eng.busy = false
                 let r = null
                 try { r = JSON.parse(text) } catch (e) {}
-                if (!r || (!r.ok && r.why !== "already")) { eng.error = "Non sono riuscito a preparare Camenix: le copie dei file sono in ~/.config/camenix/backups."; return }
+                if (!r || (!r.ok && r.why !== "already")) { eng.error = eng.tr("err.start"); return }
                 eng.firstRun = false
                 eng.draft = null
                 eng.statusProc.running = true
@@ -101,14 +129,22 @@ QtObject {
     property FileView prefsFile: FileView {
         path: eng.cfgDir + "/app.json"
         onLoaded: {
-            try { const p = JSON.parse(text()); if (p.mode === "dark" || p.mode === "light") eng.mode = p.mode } catch (e) {}
+            try {
+                const p = JSON.parse(text())
+                if (p.mode === "dark" || p.mode === "light") eng.mode = p.mode
+                if (p.lang === "it" || p.lang === "en") eng.langPref = p.lang
+                if (typeof p.autoMatch === "boolean") eng.autoMatch = p.autoMatch
+            } catch (e) {}
         }
     }
     function setMode(m) {
         if (m !== "dark" && m !== "light") return
         mode = m
-        prefsFile.setText(JSON.stringify({ mode: m }) + "\n")
+        savePrefs()
     }
+    function setLang(l) { if (l === "it" || l === "en") { langPref = l; savePrefs() } }
+    function setAutoMatch(on) { autoMatch = !!on; savePrefs() }
+    function savePrefs() { prefsFile.setText(JSON.stringify({ mode: mode, lang: langPref, autoMatch: autoMatch }) + "\n") }
 
     // ── modifiche alla bozza ───────────────────────────
     // la bozza viaggia come argomento del motore: nessun file intermedio da aspettare
@@ -162,27 +198,29 @@ QtObject {
     // ── sfondo ─────────────────────────────────────────
     property string pickingFor: "home"
     property Process pickProc: Process {
-        command: ["sh", "-c", "if command -v zenity >/dev/null; then exec zenity --file-selection --title='Scegli uno sfondo' --file-filter='Immagini | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP'; elif command -v kdialog >/dev/null; then exec kdialog --getopenfilename \"$HOME\" 'image/png image/jpeg image/webp'; else exit 3; fi"]
+        command: ["sh", "-c", "if command -v zenity >/dev/null; then exec zenity --file-selection --title=\"$1\" --file-filter='PNG, JPEG, WebP | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP'; elif command -v kdialog >/dev/null; then exec kdialog --getopenfilename \"$HOME\" 'image/png image/jpeg image/webp'; else exit 3; fi", "sh", eng.tr("wall.choose")]     // il titolo arriva come $1, mai dentro il comando
         stdout: StdioCollector {
             onStreamFinished: {
                 const p = text.trim()
-                if (p.length) { eng.importProc.command = [eng.engine, "import-wallpaper", p]; eng.importProc.running = true }
+                if (p.length) eng.importWallpaper(p)
             }
         }
-        onExited: (code) => { if (code === 3) eng.error = "Per scegliere un file serve zenity (o kdialog)." }
+        onExited: (code) => { if (code === 3) eng.error = eng.tr("err.picker") }
     }
+    // copia l'immagine scelta tra gli sfondi di Camenix (il motore controlla che sia davvero un'immagine)
+    function importWallpaper(path) { importProc.command = [engine, "import-wallpaper", path]; importProc.running = true }
     function chooseWallpaper(kind) { if (!pickProc.running) { pickingFor = kind; pickProc.running = true } }
     property Process importProc: Process {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     const r = JSON.parse(text)
-                    if (!r.ok) { eng.error = "Questo file non è un'immagine PNG, JPEG o WebP."; return }
+                    if (!r.ok) { eng.error = eng.tr("err.notImage"); return }
                     const d = eng.clone(eng.draft)
                     if (eng.pickingFor === "lock") { d.wallpaper.lock = r.path; d.wallpaper.lock_same = false }
                     else d.wallpaper.home = r.path
                     eng.draft = d
-                } catch (e) { eng.error = "Non sono riuscito a importare l'immagine." }
+                } catch (e) { eng.error = eng.tr("err.import") }
             }
         }
     }
@@ -210,17 +248,21 @@ QtObject {
                 eng.busy = false
                 if (eng.fader) eng.fader.finish()
                 let r = null
-                try { r = JSON.parse(text) } catch (e) { eng.error = "Il motore non ha risposto."; return }
+                try { r = JSON.parse(text) } catch (e) { eng.error = eng.tr("err.engine"); return }
                 if (r.ok) { eng.awaitingKeep = true; eng.applied() }
                 else if (r.conflicts && r.conflicts.length) eng.conflicts = r.conflicts.map(c => c.file)
-                else eng.error = "Non ho applicato niente: un file collegato non è utilizzabile."
+                else eng.error = eng.tr("err.unusable")
             }
         }
     }
-    function keep() { awaitingKeep = false; keepProc.running = true }
+    function keep() {
+        awaitingKeep = false; keepProc.running = true
+        lastApplied = Qt.formatTime(new Date(), "hh:mm"); justReverted = false
+    }
     property Process keepProc: Process { command: [eng.engine, "keep"] }
     function revert() {
         awaitingKeep = false
+        justReverted = true; lastApplied = ""
         busy = true
         undoProc.running = true
     }
@@ -234,7 +276,7 @@ QtObject {
         adoptProc.running = true
     }
     property Process adoptProc: Process {
-        onExited: (code) => { eng.conflicts = []; if (code === 0) eng.apply(); else eng.error = "Non sono riuscito a usare quel file." }
+        onExited: (code) => { eng.conflicts = []; if (code === 0) eng.apply(); else eng.error = eng.tr("err.adopt") }
     }
     function resetColors() { busy = true; error = ""; resetProc.running = true }
     property Process resetProc: Process {

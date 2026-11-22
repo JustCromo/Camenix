@@ -129,10 +129,9 @@ if FIRST:
 @step(1500)
 def start():
     shot("0-main")
-    S["palettes"] = [p["name"] for p in val(obj("main").property("palettes"))]
-    dark = obj("palette-Sfondo scuro")
-    if dark is not None:                         # palette ricavata dallo sfondo
-        click(dark)
+    S["palettes"] = [p["name"] for p in val(obj("main").property("themes"))]
+    if "From wallpaper · dark" in S["palettes"]:  # tema ricavato dallo sfondo (lingua: inglese, LANG=C)
+        click(obj("theme-%d" % S["palettes"].index("From wallpaper · dark")))
 
 
 @step(1500)
@@ -141,7 +140,7 @@ def palette_back():
     S["dark_glass"] = d["glass"]
     S["dirty_after_palette"] = obj("eng").property("dirty")
     shot("0b-palette")
-    click(obj("palette-In uso"))                 # e si torna a quella in uso
+    click(obj("theme-0"))                        # e si torna a quello attuale
 
 
 @step(1500)
@@ -221,7 +220,7 @@ def after_use():
     S["draft_accent"] = d["colors"]["accent"]
     S["dirty"] = obj("eng").property("dirty")
     S["theme_untouched"] = theme_file()["colors"]["accent"]
-    click(obj("color-borderFrom"))
+    click(obj("color-border"), 30, 30)         # metà sinistra del cerchio: inizio del bordo
 
 
 @step(500)
@@ -238,9 +237,9 @@ def apply_():
     S["draft_border"] = draft()["colors"]["borderFrom"]
     S["changes"] = obj("main").property("changes")
     shot("3-modified")
-    S["apply_enabled"] = btn("Applica ✓").property("enabledBtn")
+    S["apply_enabled"] = obj("applyBtn").property("enabledBtn")
     shot("4-review")
-    click(btn("Applica ✓"))
+    click(obj("applyBtn"))
 
 
 @step(2500)
@@ -250,7 +249,42 @@ def applied():
     hypr = [os.path.expanduser(p) for p in ("~/.config/hypr/config/decoration.lua", "~/.config/hypr/hyprland.conf")]
     with open([p for p in hypr if os.path.exists(p)][0]) as f:
         S["hypr_border"] = "rgba(ff00aaff)" in f.read().lower()
-    click(btn("Tieni ✓"))
+    click(obj("keepBtn"))
+
+
+@step(800)
+def lang():
+    S["apply_text_en"] = obj("applyBtn").property("text")
+    click(obj("langBtn"))                        # inglese -> italiano
+
+
+@step(800)
+def auto_match():
+    S["apply_text_it"] = obj("applyBtn").property("text")
+    S["status_it"] = obj("statusText").property("text")
+    # nuovo sfondo (rosso) con "adatta i colori" acceso: come dopo la scelta del file
+    from PySide6.QtGui import QImage, QColor
+    img = QImage(320, 180, QImage.Format_RGB32)
+    img.fill(QColor("#C0182A"))
+    path = os.path.expanduser("~/rosso.png")
+    img.save(path)
+    S["accent_before_match"] = draft()["colors"]["accent"]
+    obj("main").setProperty("matchPending", True)
+    from PySide6.QtCore import QMetaObject, Q_ARG
+    QMetaObject.invokeMethod(obj("eng"), "importWallpaper", Q_ARG("QVariant", path))
+
+
+@step(2500)
+def compare():
+    d = draft()
+    S["accent_after_match"] = d["colors"]["accent"]
+    S["glass_after_match"] = d["colors"]["glass"]
+    QTest.mousePress(view, Qt.LeftButton, Qt.NoModifier, at(obj("compareBtn")))
+    S["comparing"] = obj("main").property("comparing")
+    shot("6-compare")
+    QTest.mouseRelease(view, Qt.LeftButton, Qt.NoModifier, at(obj("compareBtn")))
+    S["comparing_after"] = obj("main").property("comparing")
+    shot("7-matched")
 
 
 @step(800)

@@ -1,0 +1,21 @@
+{
+  "format": "camenix-theme",
+  "version": 1,
+  "name": "Catppuccin Mocha",
+  "colors": {
+    "glass": "#1E1E2E",
+    "text": "#CDD6F4",
+    "accent": "#CBA6F7",
+    "accent2": "#FAB387",
+    "secondary": "#B4BEFE",
+    "borderFrom": "#CBA6F7",
+    "borderTo": "#89B4FA",
+    "success": "#A6E3A1",
+    "warning": "#F9E2AF",
+    "error": "#F38BA8"
+  },
+  "terminal": {
+    "background": "#1E1E2E",
+    "foreground": "#CDD6F4"
+  }
+}

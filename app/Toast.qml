@@ -1,4 +1,4 @@
-// paracadute: "Tenere il nuovo tema?" con conto alla rovescia; se scade, torna il tema di prima
+// paracadute: "Ti piace?" con conto alla rovescia; se scade, torna il tema di prima
 import QtQuick
 
 Rectangle {
@@ -7,6 +7,9 @@ Rectangle {
     property int seconds: 15
     property int remaining: seconds
     property bool active: false
+    property string question: ""
+    property string revertText: ""
+    property string keepText: ""
     signal keep()
     signal revert()
     visible: active
@@ -50,8 +53,8 @@ Rectangle {
             }
             Text { anchors.centerIn: parent; text: toast.remaining; color: ui.fg; font.family: ui.font; font.pixelSize: 12; font.weight: Font.Bold }
         }
-        Text { anchors.verticalCenter: parent.verticalCenter; text: "Tenere il nuovo tema?"; color: ui.fg; font.family: ui.font; font.pixelSize: 14; font.weight: Font.Bold }
-        Btn { ui: toast.ui; text: "Annulla"; anchors.verticalCenter: parent.verticalCenter; onClicked: toast.revert() }
-        Btn { ui: toast.ui; text: "Tieni ✓"; primary: true; anchors.verticalCenter: parent.verticalCenter; onClicked: toast.keep() }
+        Text { anchors.verticalCenter: parent.verticalCenter; text: toast.question; color: ui.fg; font.family: ui.font; font.pixelSize: 14; font.weight: Font.Bold }
+        Btn { objectName: "revertBtn"; ui: toast.ui; text: toast.revertText; anchors.verticalCenter: parent.verticalCenter; onClicked: toast.revert() }
+        Btn { objectName: "keepBtn"; ui: toast.ui; text: toast.keepText; primary: true; anchors.verticalCenter: parent.verticalCenter; onClicked: toast.keep() }
     }
 }

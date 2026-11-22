@@ -1,0 +1,21 @@
+{
+  "format": "camenix-theme",
+  "version": 1,
+  "name": "Nord",
+  "colors": {
+    "glass": "#2E3440",
+    "text": "#ECEFF4",
+    "accent": "#88C0D0",
+    "accent2": "#EBCB8B",
+    "secondary": "#81A1C1",
+    "borderFrom": "#88C0D0",
+    "borderTo": "#5E81AC",
+    "success": "#A3BE8C",
+    "warning": "#EBCB8B",
+    "error": "#BF616A"
+  },
+  "terminal": {
+    "background": "#2E3440",
+    "foreground": "#D8DEE9"
+  }
+}

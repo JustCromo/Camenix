@@ -372,7 +372,30 @@ def cmd_lockscreen(args, out, err):
     return OK
 
 
-COMMANDS = {"keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
+PRESET_KEYS = ("glass", "text", "accent", "accent2", "secondary", "borderFrom", "borderTo", "success", "warning", "error")
+
+
+def cmd_presets(args, out, err):
+    """Temi pronti (cartella presets del repo), solo i colori principali: le sfumature le calcola il motore."""
+    import glob
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "presets")
+    out_list = []
+    for path in sorted(glob.glob(os.path.join(root, "*.json")))[:32]:
+        try:                                           # file del programma (anche fuori dalla home, es. /usr/share)
+            if os.path.islink(path) or os.path.getsize(path) > 64 * 1024:
+                continue
+            with open(path, encoding="utf-8") as f:
+                theme, _ = th.normalize(json.load(f))      # comunque validati come un tema qualsiasi
+        except (OSError, ValueError):
+            continue
+        out_list.append({"id": os.path.basename(path)[:-5], "name": theme["name"],
+                         "colors": {k: theme["colors"][k] for k in PRESET_KEYS},
+                         "terminal": {k: theme["terminal"][k] for k in ("background", "foreground")}})
+    print(json.dumps(out_list, ensure_ascii=False))
+    return OK
+
+
+COMMANDS = {"presets": cmd_presets, "keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
             "lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,

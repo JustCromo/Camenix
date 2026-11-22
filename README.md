@@ -9,13 +9,14 @@
 Apri **Camenix** dal menu delle applicazioni (o con il comando `camenix`).
 
 - **Primo avvio**: Camenix guarda il desktop e ti mostra i colori che usi già (bordi di Hyprland, kitty, notifiche di mako, sfondo) e cosa collegherà. Finché non premi **Inizia** non tocca niente. Quei colori diventano il punto di partenza: Camenix non impone un suo tema.
-- **Sfondo**: *Cambia…* per scegliere un PNG, JPEG o WebP (Camenix ne tiene una copia). *Stesso sfondo nel blocco schermo* acceso: il blocco usa lo stesso sfondo, sfocato; spento: scegli un'altra immagine.
-- **Anteprima**: ha le proporzioni del tuo schermo. Il blocco schermo è disegnato dalla tua `hyprlock.conf` (posizione e grandezza di orologio, data e campo password, colori, sfocatura), quindi assomiglia a quello vero.
-- **Palette**: un clic e cambiano tutti i colori principali insieme. *In uso* è quella sul desktop adesso, *Sfondo chiaro* e *Sfondo scuro* sono ricavate dai colori del tuo sfondo.
-- **Colori**: sei cerchi (sfondo e testo delle isole, accento, i due colori del bordo delle finestre, terminale); *Altri colori* apre i restanti. Passando il mouse su un colore, nell'anteprima si illumina dove compare; cliccandolo si apre il selettore. Le sfumature seguono da sole.
+- **Sfondo**: *Scegli immagine…* (PNG, JPEG o WebP; Camenix ne tiene una copia). Con *Adatta i colori al nuovo sfondo* acceso, il tema si ricava subito dai colori dell'immagine (chiaro o scuro come lo sfondo). *Stesso sfondo nel blocco schermo*: spento, scegli un'altra immagine per il blocco.
+- **Tema**: un clic e cambiano tutti i colori principali insieme. *Attuale* è quello sul desktop adesso, *Dallo sfondo · chiaro/scuro* sono ricavati dal tuo sfondo, poi i temi pronti: Gudetama, Catppuccin Mocha, Nord, Gruvbox, Rosé Pine.
+- **Colori**: Pannelli (barre, menu, notifiche), Testo, Accento, Bordo finestre (cerchio diviso: metà sinistra l'inizio del gradiente, metà destra la fine), Terminale; *Altri colori* apre i restanti. Passando il mouse su un colore, nell'anteprima si illumina dove compare. Le sfumature seguono da sole.
+- **Confronto**: con modifiche in sospeso, *Tieni premuto per vedere com'era* mostra il tema attuale finché tieni premuto.
+- **Si applica a**: l'elenco dei programmi che Camenix ha collegato sul tuo sistema.
 - **Selettore**: anello delle tinte con il quadrato saturazione/luminosità, cursori **R G B**, campo `#hex`, colori dello sfondo e del tema, *prima/dopo* e, per testo e sfondo, il controllo di leggibilità. Invio conferma solo un `#hex` completo.
 - **Applica ✓**: porta l'anteprima sul desktop con una **dissolvenza** di tutto lo schermo (serve `grim`; senza, si applica e basta) e chiede *"Tenere il nuovo tema?"*. Se non premi **Tieni** entro 15 secondi torna tutto com'era, **anche se nel frattempo chiudi l'app**: ci pensa un piccolo guardiano del motore. *Annulla* rimette l'anteprima uguale al desktop.
-- **☀ / ☾**: tema chiaro o scuro dell'app (ricordato). L'app ha colori suoi, così resta leggibile qualunque tema tu scelga.
+- **IT / EN, ☀ / ☾**: lingua (di base quella del sistema, altrimenti inglese) e tema chiaro o scuro dell'app, ricordati. I testi stanno in `app/i18n/it.json` e `app/i18n/en.json`.
 
 Se un file di config è stato modificato a mano, Camenix **non applica niente** e te lo mostra: con *Tieni le mie modifiche* il file viene ricollegato con le tue modifiche e si riprova.
 

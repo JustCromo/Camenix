@@ -1,5 +1,5 @@
-// Camenix · una schermata sola: anteprima in alto, sotto sfondo, palette e colori, in basso Applica.
-// Si adatta alla grandezza della finestra (anche affiancata alle altre).
+// Camenix · una schermata sola: anteprima, poi sfondo, tema e colori, in basso "Applica al desktop".
+// Si adatta alla grandezza della finestra (anche affiancata alle altre). Tutti i testi vengono da i18n/<lingua>.json.
 import QtQuick
 import "color.js" as C
 
@@ -8,10 +8,12 @@ Rectangle {
     property var eng
     property bool showLock: false
     property bool more: false               // "Altri colori" aperto
+    property bool comparing: false          // "tieni premuto per vedere com'era"
+    property bool matchPending: false       // nuovo sfondo scelto: appena ne leggo i colori, adatto il tema
     property var hoverZones: []             // zone dell'anteprima da illuminare
-    property var wallColors: []             // colori principali dello sfondo (per le palette proposte)
-    // finestra larga: anteprima a sinistra e comandi a destra; stretta: uno sotto l'altro
+    property var wallColors: []             // colori principali dello sfondo
     readonly property bool wide: width >= 1280
+    function tr(k, v) { return eng.tr(k, v) }
 
     // colori dell'app: fissi (chiaro o scuro), non dipendono dal tema del desktop
     readonly property bool dark: eng.mode === "dark"
@@ -37,43 +39,37 @@ Rectangle {
     }
     color: pal.window
 
-    // i colori principali (sempre visibili) e gli altri (in "Altri colori")
+    // colori principali e "altri colori": chiave del tema, zone dell'anteprima, contrasto da controllare
     readonly property var mainColors: [
-        { key: "glass", label: "Sfondo", against: "text", zones: ["pills", "menu", "lock"],
-          title: "Sfondo di isole, menu e notifiche", desc: "Il fondo delle isole, dei menu e delle notifiche." },
-        { key: "text", label: "Testo", against: "glass", zones: ["pills", "menu", "clock"],
-          title: "Testo", desc: "Le scritte su isole, menu e notifiche, e l'orologio del blocco." },
-        { key: "accent", label: "Accento", zones: ["pills", "menu", "lock"],
-          title: "Accento", desc: "Il contorno delle isole, la voce scelta nei menu e il campo password del blocco." },
-        { key: "borderFrom", label: "Bordo 1", zones: ["border"],
-          title: "Bordo delle finestre · inizio", desc: "Il bordo della finestra attiva parte da questo colore…" },
-        { key: "borderTo", label: "Bordo 2", zones: ["border"],
-          title: "Bordo delle finestre · fine", desc: "…e sfuma fino a questo." },
-        { key: "terminal.background", label: "Terminale", zones: ["term"],
-          title: "Sfondo del terminale", desc: "Lo sfondo di kitty." }
+        { key: "glass", against: "text", zones: ["pills", "menu", "lock"] },
+        { key: "text", against: "glass", zones: ["pills", "menu", "clock"] },
+        { key: "accent", zones: ["pills", "menu", "lock"] },
+        { key: "border", zones: ["border"] },
+        { key: "terminal.background", name: "terminal", zones: ["term"] }
     ]
     readonly property var otherColors: [
-        { key: "accent2", label: "Risalto", zones: ["menu"], title: "Risalto", desc: "La riga sotto la voce scelta e i dettagli in risalto." },
-        { key: "secondary", label: "Dettagli", zones: ["menu"], title: "Dettagli", desc: "Il contorno dei menu e le parti secondarie." },
-        { key: "success", label: "Ok", zones: [], title: "Tutto ok", desc: "Conferme e stati positivi (es. batteria in carica)." },
-        { key: "warning", label: "Avviso", zones: [], title: "Avviso", desc: "Cose da tenere d'occhio (es. batteria bassa)." },
-        { key: "error", label: "Errore", zones: [], title: "Errore", desc: "Errori e notifiche urgenti." }
+        { key: "accent2", zones: ["menu"] },
+        { key: "secondary", zones: ["menu"] },
+        { key: "success", zones: [] },
+        { key: "warning", zones: [] },
+        { key: "error", zones: [] }
     ]
     readonly property var paletteKeys: ["glass", "text", "accent", "accent2", "secondary", "borderFrom", "borderTo"]
+    function nameOf(key) { return key === "terminal.background" ? "terminal" : key }
 
     function hexIn(theme, key) {
         if (!theme) return "#000000"
         return key.indexOf("terminal.") === 0 ? theme.terminal[key.slice(9)] : theme.colors[key]
     }
     function hexOf(key) { return hexIn(eng.draft, key) }
-    function pick(theme) {                              // i colori di una palette presi da un tema
-        if (!theme) return null
+    function pick(colors) {
+        if (!colors) return null
         const o = {}
-        for (const k of paletteKeys) o[k] = theme.colors[k]
+        for (const k of paletteKeys) o[k] = colors[k]
         return o
     }
-    // palette da cliccare: quella in uso, quella iniziale, e due ricavate dallo sfondo
-    readonly property var palettes: {
+    // temi da cliccare: quello attuale, due ricavati dallo sfondo, poi quelli pronti
+    readonly property var themes: {
         const out = [], seen = {}
         function add(name, c) {
             if (!c) return
@@ -82,9 +78,10 @@ Rectangle {
             seen[id] = true
             out.push({ name: name, c: c })
         }
-        add("In uso", pick(eng.current))
-        add("Sfondo chiaro", C.suggest(wallColors, false))
-        add("Sfondo scuro", C.suggest(wallColors, true))
+        add(tr("theme.current"), pick(eng.current ? eng.current.colors : null))
+        add(tr("theme.fromWallLight"), C.suggest(wallColors, false))
+        add(tr("theme.fromWallDark"), C.suggest(wallColors, true))
+        for (const p of eng.presets) add(p.name, pick(p.colors))
         return out
     }
     function isDraft(c) { return !!eng.draft && paletteKeys.every(k => eng.draft.colors[k] === c[k]) }
@@ -92,20 +89,31 @@ Rectangle {
         const c = eng.current, d = eng.draft
         if (!c || !d) return 0
         let n = 0
-        for (const it of mainColors.concat(otherColors)) if (hexIn(c, it.key) !== hexIn(d, it.key)) n++
+        const keys = paletteKeys.concat(["success", "warning", "error", "terminal.background"])
+        for (const k of keys) if (hexIn(c, k) !== hexIn(d, k)) n++
         if (c.wallpaper.home !== d.wallpaper.home) n++
         if (c.wallpaper.lock_same !== d.wallpaper.lock_same || c.wallpaper.lock !== d.wallpaper.lock) n++
         return n
     }
     readonly property bool lockZonesOnly: hoverZones.length > 0 && hoverZones.every(z => z === "lock" || z === "clock")
 
-    function edit(it) {
+    // nuovo sfondo: appena ne conosco i colori, il tema si adatta (chiaro o scuro come lo sfondo)
+    onWallColorsChanged: {
+        if (!matchPending || !wallColors.length) return
+        matchPending = false
+        const darkWall = C.lum(wallColors[0]) < 0.2
+        const s = C.suggest(wallColors, darkWall)
+        if (s) eng.setColors(s)
+    }
+    function chooseHome() { matchPending = eng.autoMatch; eng.chooseWallpaper("home") }
+
+    function edit(key, against) {
         hoverZones = []
-        editor.label = it.title
-        editor.desc = it.desc
-        editor.against = it.against ? hexOf(it.against) : ""
-        editor.startHex = hexOf(it.key)
-        editor.role = it.key
+        editor.label = tr("color." + nameOf(key) + ".title")
+        editor.desc = tr("color." + nameOf(key) + ".desc")
+        editor.against = against ? hexOf(against) : ""
+        editor.startHex = hexOf(key)
+        editor.role = key
     }
 
     focus: true
@@ -119,32 +127,47 @@ Rectangle {
             x: 24; anchors.verticalCenter: parent.verticalCenter
             spacing: 10
             Image { width: 34; height: 34; source: Qt.resolvedUrl("assets/camenix.svg"); sourceSize.width: 68; sourceSize.height: 68 }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Camenix"; color: pal.fg; font.family: pal.font; font.pixelSize: 18; font.weight: Font.ExtraBold }
-        }
-        Rectangle {                                 // chiaro / scuro (solo l'app)
-            anchors.right: closeBtn.left; anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            width: 64; height: 30; radius: 15
-            color: pal.card
-            border.width: 1.5; border.color: pal.line
-            Rectangle {
-                width: 26; height: 24; radius: 12; y: 3
-                x: main.dark ? parent.width - width - 3 : 3
-                color: pal.accent
-                Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                Text { text: "Camenix"; color: pal.fg; font.family: pal.font; font.pixelSize: 18; font.weight: Font.ExtraBold }
+                Text { text: main.tr("app.tagline"); color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
             }
-            Text { x: 9; anchors.verticalCenter: parent.verticalCenter; text: "☀"; color: main.dark ? pal.fg : pal.accentInk; font.pixelSize: 13 }
-            Text { anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter; text: "☾"; color: main.dark ? pal.accentInk : pal.fg; font.pixelSize: 13 }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.eng.setMode(main.dark ? "light" : "dark") }
         }
-        Item {
-            id: closeBtn
+        Row {
             anchors.right: parent.right; anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            width: 32; height: 32
-            Rectangle { anchors.fill: parent; radius: 16; color: closeArea.containsMouse ? Qt.rgba(0.76, 0.22, 0.31, 0.14) : "transparent" }
-            Text { anchors.centerIn: parent; text: "✕"; color: closeArea.containsMouse ? pal.bad : pal.muted; font.pixelSize: 15 }
-            MouseArea { id: closeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+            spacing: 10
+            Rectangle {                             // lingua dell'app
+                objectName: "langBtn"
+                anchors.verticalCenter: parent.verticalCenter
+                width: 46; height: 30; radius: 15
+                color: langArea.containsMouse ? pal.hover : pal.card
+                border.width: 1.5; border.color: pal.line
+                Text { anchors.centerIn: parent; text: main.tr("lang.toggle"); color: pal.fg; font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold }
+                MouseArea { id: langArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: main.eng.setLang(main.eng.lang === "it" ? "en" : "it") }
+            }
+            Rectangle {                             // chiaro / scuro (solo l'app)
+                anchors.verticalCenter: parent.verticalCenter
+                width: 64; height: 30; radius: 15
+                color: pal.card
+                border.width: 1.5; border.color: pal.line
+                Rectangle {
+                    width: 26; height: 24; radius: 12; y: 3
+                    x: main.dark ? parent.width - width - 3 : 3
+                    color: pal.accent
+                    Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                }
+                Text { x: 9; anchors.verticalCenter: parent.verticalCenter; text: "☀"; color: main.dark ? pal.fg : pal.accentInk; font.pixelSize: 13 }
+                Text { anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter; text: "☾"; color: main.dark ? pal.accentInk : pal.fg; font.pixelSize: 13 }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.eng.setMode(main.dark ? "light" : "dark") }
+            }
+            Item {
+                width: 32; height: 32
+                Rectangle { anchors.fill: parent; radius: 16; color: closeArea.containsMouse ? Qt.rgba(0.76, 0.22, 0.31, 0.14) : "transparent" }
+                Text { anchors.centerIn: parent; text: "✕"; color: closeArea.containsMouse ? pal.bad : pal.muted; font.pixelSize: 15 }
+                MouseArea { id: closeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+            }
         }
     }
 
@@ -164,11 +187,10 @@ Rectangle {
             rowSpacing: 18
             width: Math.min(body.width - 48, main.wide ? 1760 : 1080)
             x: (body.width - width) / 2
-            y: Math.max(0, (body.height - implicitHeight - 12) / 2)    // avanza spazio in altezza: tutto al centro
+            y: Math.max(0, (body.height - implicitHeight - 12) / 2)
             topPadding: main.wide ? 12 : 4
 
-            // anteprima con le proporzioni del tuo schermo: da larga prende lo spazio a sinistra,
-            // da stretta non spinge fuori i comandi; se avanza spazio resta centrata
+            // anteprima con le proporzioni del tuo schermo
             Item {
                 id: previewBox
                 readonly property real aspect: main.eng.lockInfo && main.eng.lockInfo.screen ? main.eng.lockInfo.screen[0] / main.eng.lockInfo.screen[1] : 16 / 9
@@ -176,51 +198,67 @@ Rectangle {
                 readonly property real maxH: main.wide ? body.height - 36 : body.height - controls.implicitHeight - 46
                 width: maxW
                 height: preview.height
-            Preview {
-                id: preview
-                ui: pal
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: Math.max(320, Math.min(previewBox.maxW, Math.max(200, previewBox.maxH) * previewBox.aspect))
-                height: width / previewBox.aspect
-                theme: main.eng.draft
-                highlight: main.hoverZones
-                lockInfo: main.eng.lockInfo
-                user: main.eng.user
-                lock: main.showLock || main.lockZonesOnly
-                Rectangle {                             // effetto di "Applica": un'onda del nuovo accento
-                    id: wave
-                    z: 70
-                    anchors.centerIn: parent
-                    width: Math.hypot(parent.width, parent.height); height: width
-                    radius: width / 2
-                    color: main.hexOf("accent")
-                    opacity: 0; scale: 0
-                }                Row {                                   // scrivania | blocco schermo
-                    anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12
-                    z: 60
-                    spacing: 6
-                    Repeater {
-                        model: [{ t: "Scrivania", lock: false }, { t: "Blocco schermo", lock: true }]
-                        Rectangle {
-                            required property var modelData
-                            readonly property bool on: main.showLock === modelData.lock
-                            width: tt.implicitWidth + 24; height: 28; radius: 14
-                            color: on ? Qt.rgba(0.12, 0.08, 0.16, 0.85) : Qt.rgba(1, 1, 1, 0.85)
-                            border.width: 1; border.color: Qt.rgba(0.12, 0.08, 0.16, 0.35)
-                            Text { id: tt; anchors.centerIn: parent; text: parent.modelData.t; color: parent.on ? "white" : "#1E1528"
-                                   font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.showLock = parent.modelData.lock }
+                Preview {
+                    id: preview
+                    ui: pal
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.max(320, Math.min(previewBox.maxW, Math.max(200, previewBox.maxH) * previewBox.aspect))
+                    height: width / previewBox.aspect
+                    theme: main.comparing && main.eng.current ? main.eng.current : main.eng.draft
+                    highlight: main.hoverZones
+                    lockInfo: main.eng.lockInfo
+                    user: main.eng.user
+                    emptyText: main.tr("preview.empty")
+                    lock: main.showLock || main.lockZonesOnly
+                    Rectangle {                         // effetto di "Applica": un'onda del nuovo accento
+                        id: wave
+                        z: 70
+                        anchors.centerIn: parent
+                        width: Math.hypot(parent.width, parent.height); height: width
+                        radius: width / 2
+                        color: main.hexOf("accent")
+                        opacity: 0; scale: 0
+                    }
+                    Row {                               // scrivania | blocco schermo
+                        anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12
+                        z: 95
+                        spacing: 6
+                        Repeater {
+                            model: [{ t: "preview.desktop", lock: false }, { t: "preview.lock", lock: true }]
+                            Rectangle {
+                                required property var modelData
+                                readonly property bool on: main.showLock === modelData.lock
+                                width: tt.implicitWidth + 24; height: 28; radius: 14
+                                color: on ? Qt.rgba(0.12, 0.08, 0.16, 0.85) : Qt.rgba(1, 1, 1, 0.85)
+                                border.width: 1; border.color: Qt.rgba(0.12, 0.08, 0.16, 0.35)
+                                Text { id: tt; anchors.centerIn: parent; text: main.tr(parent.modelData.t); color: parent.on ? "white" : "#1E1528"
+                                       font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.showLock = parent.modelData.lock }
+                            }
                         }
                     }
+                    Rectangle {                         // tieni premuto: com'era prima
+                        objectName: "compareBtn"
+                        visible: main.eng.dirty
+                        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
+                        anchors.topMargin: Math.round(54 * preview.k)          // sotto le barre dell'anteprima
+                        z: 95
+                        width: cmpText.implicitWidth + 28; height: 28; radius: 14
+                        color: main.comparing ? Qt.rgba(0.12, 0.08, 0.16, 0.85) : Qt.rgba(1, 1, 1, 0.85)
+                        border.width: 1; border.color: Qt.rgba(0.12, 0.08, 0.16, 0.35)
+                        Text { id: cmpText; anchors.centerIn: parent; text: "◐  " + main.tr("preview.compare"); color: main.comparing ? "white" : "#1E1528"
+                               font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onPressed: main.comparing = true; onReleased: main.comparing = false; onCanceled: main.comparing = false }
+                    }
                 }
-            }
             }
 
             Column {
                 id: controls
                 width: main.wide ? 540 : content.width
-                spacing: 18
-                readonly property bool stacked: width < 600          // poco spazio: titoletti sopra, non a sinistra
+                spacing: 20
+                readonly property bool stacked: width < 600
                 readonly property real inner: stacked ? width : width - 110
 
                 component Label: Text {
@@ -228,19 +266,38 @@ Rectangle {
                     color: pal.muted
                     font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold
                 }
+                component Check: Rectangle {            // casella con testo
+                    id: chk
+                    property bool on: false
+                    property string label: ""
+                    signal toggled()
+                    width: chkRow.implicitWidth + 24; height: 38; radius: 19
+                    color: chkArea.containsMouse ? pal.hover : "transparent"
+                    border.width: 1.5; border.color: pal.line
+                    Row {
+                        id: chkRow
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Rectangle { width: 18; height: 18; radius: 5; anchors.verticalCenter: parent.verticalCenter
+                                    color: chk.on ? pal.accent2 : "transparent"; border.width: 2; border.color: chk.on ? pal.accent2 : pal.muted
+                                    Text { anchors.centerIn: parent; text: "✓"; visible: chk.on; color: "white"; font.pixelSize: 11; font.bold: true } }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: chk.label; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
+                    }
+                    MouseArea { id: chkArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chk.toggled() }
+                }
 
                 // Sfondo
                 Grid {
                     columns: controls.stacked ? 1 : 2
                     rowSpacing: 8
-                    verticalItemAlignment: Grid.AlignVCenter
-                    Label { text: "Sfondo" }
+                    Label { text: main.tr("wall.title"); topPadding: controls.stacked ? 0 : 30 }
                     Row {
                         spacing: 14
                         Rectangle {
                             width: 150; height: 86; radius: 12
                             color: pal.panel; border.width: 1; border.color: pal.line
-                            Canvas {                    // miniatura: da qui si leggono anche i colori per le palette
+                            anchors.verticalCenter: parent.verticalCenter
+                            Canvas {                    // miniatura: da qui si leggono anche i colori dello sfondo
                                 id: thumb
                                 anchors.fill: parent; anchors.margins: 1
                                 property string src: main.eng.draft && main.eng.draft.wallpaper.home ? "file://" + main.eng.draft.wallpaper.home : ""
@@ -252,70 +309,56 @@ Rectangle {
                                     if (src === "" || !isImageLoaded(src)) return
                                     ctx.drawImage(src, 0, 0, width, height)
                                     try { main.wallColors = C.palette(ctx.getImageData(0, 0, width, height).data, 8) } catch (e) { main.wallColors = [] }
-                                    // angoli arrotondati: si "cancella" fuori dal rettangolo arrotondato
                                     ctx.globalCompositeOperation = "destination-in"
                                     ctx.beginPath(); ctx.roundedRect(0, 0, width, height, 11, 11); ctx.fill()
                                 }
                             }
-                            Text { anchors.centerIn: parent; visible: thumb.src === ""; text: "nessuno"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
+                            Text { anchors.centerIn: parent; visible: thumb.src === ""; text: main.tr("wall.none"); color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
                         }
-                        Column {                        // a destra della miniatura: cambia sfondo, e sotto il blocco
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 10
-                            Btn { ui: pal; width: sameLock.width; text: "Cambia sfondo…"; onClicked: main.eng.chooseWallpaper("home") }
-                            Rectangle {                 // blocco: stesso sfondo sì/no
-                                id: sameLock
-                                readonly property bool on: main.eng.draft ? main.eng.draft.wallpaper.lock_same : true
-                                width: sameRow.implicitWidth + 24; height: 38; radius: 19
-                                color: sameArea.containsMouse ? pal.hover : "transparent"
-                                border.width: 1.5; border.color: pal.line
-                                Row {
-                                    id: sameRow
-                                    anchors.centerIn: parent
-                                    spacing: 8
-                                    Rectangle { width: 18; height: 18; radius: 5; anchors.verticalCenter: parent.verticalCenter
-                                                color: sameLock.on ? pal.accent2 : "transparent"; border.width: 2; border.color: sameLock.on ? pal.accent2 : pal.muted
-                                                Text { anchors.centerIn: parent; text: "✓"; visible: sameLock.on; color: "white"; font.pixelSize: 11; font.bold: true } }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Stesso sfondo nel blocco schermo"; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
-                                }
-                                MouseArea { id: sameArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                            onClicked: { main.showLock = true; if (sameLock.on) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) } }
+                        Column {
+                            spacing: 8
+                            Btn { objectName: "chooseWall"; ui: pal; primary: true; width: Math.max(implicitWidth, matchChk.width); text: main.tr("wall.choose"); onClicked: main.chooseHome() }
+                            Check { id: matchChk; objectName: "matchChk"; on: main.eng.autoMatch; label: main.tr("wall.match"); onToggled: main.eng.setAutoMatch(!on) }
+                            Check {
+                                readonly property bool same: main.eng.draft ? main.eng.draft.wallpaper.lock_same : true
+                                on: same; label: main.tr("wall.sameLock")
+                                onToggled: { main.showLock = true; if (same) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) }
                             }
                         }
                     }
                 }
 
-                // Palette
+                // Tema
                 Grid {
                     columns: controls.stacked ? 1 : 2
                     rowSpacing: 8
-                    verticalItemAlignment: Grid.AlignVCenter
-                    Label { text: "Palette" }
+                    Label { text: main.tr("theme.title"); topPadding: controls.stacked ? 0 : 16 }
                     Flow {
                         width: controls.inner
-                        spacing: 10
+                        spacing: 8
                         Repeater {
-                            model: main.palettes
+                            model: main.themes
                             Rectangle {
                                 id: chip
                                 required property var modelData
+                                required property int index
                                 readonly property bool on: main.isDraft(modelData.c)
-                                objectName: "palette-" + modelData.name
-                                width: 150; height: 58; radius: 16
+                                objectName: "theme-" + index
+                                width: 124; height: 54; radius: 14
                                 color: modelData.c.glass
                                 border.width: on ? 3 : 1.5
                                 border.color: on ? pal.accent2 : (chipArea.containsMouse ? pal.muted : pal.line)
                                 Row {
-                                    x: 12; y: 10
-                                    spacing: 5
+                                    x: 10; y: 9
+                                    spacing: 4
                                     Repeater {
                                         model: ["accent", "accent2", "secondary", "borderFrom", "borderTo"]
-                                        Rectangle { required property string modelData; width: 18; height: 18; radius: 9
+                                        Rectangle { required property string modelData; width: 15; height: 15; radius: 8
                                                     color: chip.modelData.c[modelData]; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
                                     }
                                 }
-                                Text { x: 12; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
-                                       text: chip.modelData.name; color: chip.modelData.c.text; font.family: pal.font; font.pixelSize: 11; font.weight: Font.Bold }
+                                Text { x: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 7; width: parent.width - 16; elide: Text.ElideRight
+                                       text: chip.modelData.name; color: chip.modelData.c.text; font.family: pal.font; font.pixelSize: 10; font.weight: Font.Bold }
                                 MouseArea { id: chipArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onClicked: main.eng.setColors(chip.modelData.c) }
                             }
@@ -327,29 +370,50 @@ Rectangle {
                 Grid {
                     columns: controls.stacked ? 1 : 2
                     rowSpacing: 8
-                    Label { text: "Colori"; topPadding: controls.stacked ? 0 : 16 }
+                    Label { text: main.tr("colors.title"); topPadding: controls.stacked ? 0 : 16 }
                     Column {
-                        spacing: 4
+                        spacing: 6
                         Flow {
                             width: controls.inner
-                            spacing: 6
+                            spacing: 4
                             Repeater {
                                 model: main.mainColors
-                                ColorCircle {
+                                Item {
+                                    id: cell
                                     required property var modelData
-                                    objectName: "color-" + modelData.key
-                                    ui: pal
-                                    label: modelData.label
-                                    hex: main.hexOf(modelData.key)
-                                    selected: editor.role === modelData.key
-                                    onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
-                                    onClicked: main.edit(modelData)
+                                    readonly property bool isBorder: modelData.key === "border"
+                                    width: isBorder ? 110 : 80; height: 96
+                                    ColorCircle {
+                                        visible: !cell.isBorder
+                                        objectName: cell.isBorder ? "" : "color-" + cell.modelData.key
+                                        ui: pal
+                                        label: main.tr("color." + main.nameOf(cell.modelData.key))
+                                        hex: cell.isBorder ? "#000000" : main.hexOf(cell.modelData.key)
+                                        selected: editor.role === cell.modelData.key
+                                        onHoveredChanged: main.hoverZones = hovered ? cell.modelData.zones : []
+                                        onClicked: main.edit(cell.modelData.key, cell.modelData.against)
+                                    }
+                                    BorderCircle {
+                                        visible: cell.isBorder
+                                        objectName: cell.isBorder ? "color-border" : ""
+                                        ui: pal
+                                        label: main.tr("color.border")
+                                        from: main.hexOf("borderFrom")
+                                        to: main.hexOf("borderTo")
+                                        selectedKey: editor.role
+                                        onHoveredChanged: main.hoverZones = hovered ? ["border"] : []
+                                        onPicked: (key) => main.edit(key, "")
+                                    }
                                 }
                             }
                         }
                         Text {
-                            id: moreBtn
-                            text: (main.more ? "▾" : "▸") + "  Altri colori"
+                            text: main.tr("colors.hint")
+                            width: controls.inner; wrapMode: Text.WordWrap
+                            color: pal.muted; font.family: pal.font; font.pixelSize: 10
+                        }
+                        Text {
+                            text: (main.more ? "▾" : "▸") + "  " + main.tr("colors.more")
                             color: moreArea.containsMouse ? pal.accent2 : pal.muted
                             font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold
                             MouseArea { id: moreArea; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -358,19 +422,39 @@ Rectangle {
                         Flow {
                             visible: main.more
                             width: controls.inner
-                            spacing: 6
+                            spacing: 4
                             Repeater {
                                 model: main.otherColors
                                 ColorCircle {
                                     required property var modelData
                                     objectName: "color-" + modelData.key
                                     ui: pal
-                                    label: modelData.label
+                                    label: main.tr("color." + modelData.key)
                                     hex: main.hexOf(modelData.key)
                                     selected: editor.role === modelData.key
                                     onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
-                                    onClicked: main.edit(modelData)
+                                    onClicked: main.edit(modelData.key, "")
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // Si applica a
+                Grid {
+                    columns: controls.stacked ? 1 : 2
+                    rowSpacing: 8
+                    Label { text: main.tr("linked.title"); topPadding: controls.stacked ? 0 : 5 }
+                    Flow {
+                        width: controls.inner
+                        spacing: 6
+                        Repeater {
+                            model: ["wallpaper"].concat(main.eng.managedKinds)
+                            Rectangle {
+                                required property string modelData
+                                width: kt.implicitWidth + 20; height: 26; radius: 13
+                                color: pal.panel; border.width: 1; border.color: pal.line
+                                Text { id: kt; anchors.centerIn: parent; text: main.tr("kind." + parent.modelData); color: pal.fg; font.family: pal.font; font.pixelSize: 10 }
                             }
                         }
                     }
@@ -379,7 +463,7 @@ Rectangle {
         }
     }
 
-    // Applica: l'anteprima fa un piccolo "pop" (come le finestre) e un'onda del nuovo accento la attraversa
+    // Applica: l'anteprima fa un piccolo "pop" e un'onda del nuovo accento la attraversa
     ParallelAnimation {
         id: applyFx
         NumberAnimation { target: wave; property: "scale"; from: 0; to: 1; duration: 700; easing.type: Easing.OutCubic }
@@ -391,7 +475,7 @@ Rectangle {
     }
     Connections { target: main.eng; function onApplied() { applyFx.restart() } }
 
-    // ── barra in basso: stato e Applica ─────────────────
+    // ── barra in basso: cosa succede, e Applica ─────────
     Rectangle {
         id: bottom
         anchors.bottom: parent.bottom
@@ -405,12 +489,15 @@ Rectangle {
             Rectangle { width: 9; height: 9; radius: 5; anchors.verticalCenter: parent.verticalCenter
                         color: main.eng.error !== "" ? pal.bad : main.eng.dirty ? pal.accent2 : pal.ok }
             Text {
+                objectName: "statusText"
                 width: main.width - actions.width - 90
                 elide: Text.ElideRight
                 text: main.eng.error !== "" ? main.eng.error
-                    : main.eng.busy ? "Un momento…"
-                    : main.eng.dirty ? "Anteprima modificata: premi Applica per portarla sul desktop"
-                    : "Il desktop è uguale all'anteprima"
+                    : main.eng.busy ? main.tr("status.applying")
+                    : main.eng.dirty ? (main.changes === 1 ? main.tr("status.pending.one") : main.tr("status.pending.many", { n: Math.max(1, main.changes) }))
+                    : main.eng.justReverted ? main.tr("status.reverted")
+                    : main.eng.lastApplied !== "" ? main.tr("status.applied", { time: main.eng.lastApplied })
+                    : main.tr("status.start")
                 color: main.eng.error !== "" ? pal.bad : pal.fg
                 font.family: pal.font; font.pixelSize: 12
             }
@@ -420,8 +507,8 @@ Rectangle {
             anchors.right: parent.right; anchors.rightMargin: 24
             anchors.verticalCenter: parent.verticalCenter
             spacing: 10
-            Btn { ui: pal; visible: main.eng.dirty; text: "Annulla"; enabledBtn: !main.eng.busy; onClicked: main.eng.discard() }
-            Btn { ui: pal; text: "Applica ✓"; primary: true
+            Btn { ui: pal; visible: main.eng.dirty; text: main.tr("btn.discard"); enabledBtn: !main.eng.busy; onClicked: main.eng.discard() }
+            Btn { objectName: "applyBtn"; ui: pal; text: main.tr("btn.apply"); primary: true
                   enabledBtn: main.eng.dirty && !main.eng.busy && !main.eng.awaitingKeep; onClicked: main.eng.apply() }
         }
     }
@@ -439,14 +526,14 @@ Rectangle {
         Column {
             id: cCol
             x: 20; y: 14; spacing: 8
-            Text { text: "Non ho applicato niente: questi file sono stati modificati a mano"; color: pal.bad; font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold }
+            Text { text: main.tr("conflict.title"); color: pal.bad; font.family: pal.font; font.pixelSize: 12; font.weight: Font.Bold }
             Repeater {
                 model: main.eng.conflicts
                 Row {
                     required property string modelData
                     spacing: 10
                     Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.replace(main.eng.home, "~"); color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
-                    Btn { ui: pal; text: "Tieni le mie modifiche"; onClicked: main.eng.adoptAndRetry(parent.modelData) }
+                    Btn { ui: pal; text: main.tr("conflict.keep"); onClicked: main.eng.adoptAndRetry(parent.modelData) }
                 }
             }
         }
@@ -456,15 +543,15 @@ Rectangle {
         ui: pal
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: bottom.verticalCenter
+        question: main.tr("toast.question")
+        revertText: main.tr("toast.revert")
+        keepText: main.tr("toast.keep")
         active: main.eng.awaitingKeep
         onKeep: main.eng.keep()
         onRevert: main.eng.revert()
     }
 
-    Welcome { ui: pal; eng: main.eng; kindNames: ({ hyprland: "Bordi delle finestre (Hyprland)", kitty: "Terminale (kitty)",
-                                                    mako: "Notifiche (mako)", rofi: "Menu (rofi)", hyprlock: "Blocco schermo (hyprlock)",
-                                                    quickshell: "Isole (Quickshell)", other: "Altre config" })
-              visible: main.eng.firstRun }
+    Welcome { ui: pal; eng: main.eng; visible: main.eng.firstRun }
 
     ColorEditor {
         id: editor

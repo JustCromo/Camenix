@@ -39,8 +39,9 @@ class TestPicker(unittest.TestCase):
         s = json.loads(pathlib.Path(shots, "report.json").read_text())
         self.assertEqual(s["errors"], [], r.stderr[-2000:])
         s = s["steps"]
-        self.assertEqual(s["palettes"][0], "In uso")
-        self.assertIn("Sfondo scuro", s["palettes"])                     # palette proposte dallo sfondo
+        self.assertEqual(s["palettes"][0], "Current")                    # LANG=C: inglese
+        self.assertIn("From wallpaper · dark", s["palettes"])            # temi proposti dallo sfondo
+        self.assertIn("Catppuccin Mocha", s["palettes"])                 # e quelli pronti
         self.assertTrue(s["dirty_after_palette"])
         r_, g_, b_ = (int(s["dark_glass"][i:i + 2], 16) for i in (1, 3, 5))
         self.assertLess(r_ + g_ + b_, 200)                               # "scuro" è davvero scuro
@@ -66,6 +67,14 @@ class TestPicker(unittest.TestCase):
         self.assertEqual(s["fader"], [1, 1])                             # dissolvenza: foto prima, sfuma dopo
         self.assertFalse(s["pending_after_keep"])                        # e il guardiano non tornerà indietro
         self.assertEqual(s["kept"], "#3FE0D0")
+        self.assertEqual(s["apply_text_en"], "Apply to desktop")         # testi dal file della lingua
+        self.assertEqual(s["apply_text_it"], "Applica al desktop")       # il pulsante IT/EN cambia lingua
+        self.assertTrue(s["status_it"].startswith("Applicato alle"))     # stato concreto dopo "Tieni"
+        self.assertNotEqual(s["accent_after_match"], s["accent_before_match"])   # nuovo sfondo -> colori adattati
+        r_, g_, b_ = (int(s["accent_after_match"][i:i + 2], 16) for i in (1, 3, 5))
+        self.assertGreater(r_, g_ + 60)                                  # sfondo rosso: accento rosso
+        self.assertTrue(s["comparing"])                                  # tieni premuto: com'era
+        self.assertFalse(s["comparing_after"])
 
 
     def test_first_run_on_a_new_desktop(self):

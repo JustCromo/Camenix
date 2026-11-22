@@ -9,13 +9,15 @@ Rectangle {
     property bool lock: false
     property var lockInfo: null           // com'è fatta la schermata di blocco vera (hyprlock.conf)
     property string user: ""
+    property string emptyText: ""
+    // nome utente per il terminale finto: solo lettere, cifre e . _ - (finisce in un testo con markup)
+    readonly property string safeUser: (user.replace(/[^A-Za-z0-9._-]/g, "") || "user").slice(0, 24)
     readonly property bool realLock: !!lockInfo && lockInfo.found
     readonly property real screenW: lockInfo && lockInfo.screen ? lockInfo.screen[0] : 1920
     readonly property real k: width / screenW              // scala: pixel dello schermo vero -> anteprima
     readonly property var bg: realLock && lockInfo.background ? lockInfo.background : null
     property var highlight: []            // zone da illuminare (passando sopra un colore)
     function hl(z) { return highlight.indexOf(z) >= 0 }
-    property string label: lock ? "Blocco schermo" : "Scrivania"
     readonly property var c: theme ? theme.colors : ({})
     readonly property var term: theme ? theme.terminal : ({})
     readonly property string wall: {
@@ -58,7 +60,7 @@ Rectangle {
     Text {
         visible: pv.wall === ""
         anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
-        text: "nessuno sfondo: scegline uno qui sotto"
+        text: pv.emptyText
         color: ui.muted
         font.family: ui.font
         font.pixelSize: 11
@@ -110,8 +112,8 @@ Rectangle {
             Column {
                 x: 10; y: 8; spacing: 3
                 Text { textFormat: Text.StyledText; font.family: ui.font; font.pixelSize: 9; color: pv.term.foreground || "#DDDDDD"
-                       text: "<font color='" + (pv.term.color2 || "#19CB00") + "'>ivan@archlinux</font> <font color='" + (pv.term.color4 || "#0D73CC") + "'>~</font> $ fastfetch" }
-                Text { font.family: ui.font; font.pixelSize: 9; color: pv.term.foreground || "#DDDDDD"; text: "OS: Arch Linux · WM: Hyprland" }
+                       text: "<font color='" + (pv.term.color2 || "#19CB00") + "'>" + pv.safeUser + "@hyprland</font> <font color='" + (pv.term.color4 || "#0D73CC") + "'>~</font> $ fastfetch" }
+                Text { font.family: ui.font; font.pixelSize: 9; color: pv.term.foreground || "#DDDDDD"; text: "WM: Hyprland · Theme: Camenix" }
                 Row { spacing: 2; Repeater { model: 8; Rectangle { width: 12; height: 8; color: pv.term["color" + index] || "#000" } } }
                 Text { font.family: ui.font; font.pixelSize: 9; color: pv.term.foreground || "#DDDDDD"; text: "$ █" }
             }

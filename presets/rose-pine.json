@@ -1,0 +1,21 @@
+{
+  "format": "camenix-theme",
+  "version": 1,
+  "name": "Rosé Pine",
+  "colors": {
+    "glass": "#191724",
+    "text": "#E0DEF4",
+    "accent": "#EBBCBA",
+    "accent2": "#F6C177",
+    "secondary": "#C4A7E7",
+    "borderFrom": "#EB6F92",
+    "borderTo": "#C4A7E7",
+    "success": "#9CCFD8",
+    "warning": "#F6C177",
+    "error": "#EB6F92"
+  },
+  "terminal": {
+    "background": "#191724",
+    "foreground": "#E0DEF4"
+  }
+}
