@@ -46,8 +46,11 @@ Item {
                 : it.kind === "user" ? lv.user : it.text
             color: lv.first(it.color, "white")
             font.family: lv.font
-            font.pixelSize: Math.max(4, it.font_size * lv.s)
-            font.weight: it.bold ? Font.ExtraBold : Font.Normal
+            // hyprlock misura i caratteri in punti (1 pt = 4/3 px) e usa il peso normale del font
+            font.pixelSize: Math.max(4, it.font_size * 4 / 3 * lv.s)
+            font.weight: Font.Normal
+            style: it.shadow ? Text.Outline : Text.Normal          // alone (shadow_passes) come contorno morbido
+            styleColor: it.shadow ? lv.first(it.shadow, "transparent") : "transparent"
         }
     }
     Repeater {

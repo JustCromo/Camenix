@@ -58,7 +58,7 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         smooth: true
-        sourceSize.width: pv.lockRadius > 0 ? Math.max(24, Math.round(pv.screenW / pv.lockRadius * 2)) : 1400
+        sourceSize.width: pv.lockRadius > 0 ? Math.max(24, Math.round(pv.screenW / (pv.lockRadius * 1.5))) : 1400
     }
     MultiEffect {
         id: lockSoft
@@ -66,7 +66,7 @@ Rectangle {
         source: lockImg
         visible: pv.lock && pv.lockRadius > 0
         blurEnabled: true
-        blur: 0.5
+        blur: 0.6
         blurMax: 16
         saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy / 2)) : 0
     }

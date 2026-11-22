@@ -187,6 +187,7 @@ input-field {
         self.assertEqual(f["outer"]["angle"], 45)
         self.assertEqual(f["inner"]["stops"][0], {"hex": "#FBECF0", "a": 0.251})
         self.assertEqual(d["background"]["blur_passes"], 3)
+        self.assertIsNone(clock["shadow"])                                               # niente shadow_passes
 
     def test_date_never_runs_the_command(self):
         from camenix import lockscreen

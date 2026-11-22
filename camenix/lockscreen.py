@@ -127,6 +127,7 @@ def parse(text, screen=(1920, 1080)):
             out["labels"].append({"kind": kind, "text": plain, "color": parse_color(k.get("color", "")),
                                   "font_size": max(4, min(400, _num(k.get("font_size"), 16))),
                                   "bold": "bold" in k.get("font_family", "").lower(),
+                                  "shadow": parse_color(k.get("shadow_color", "")) if _num(k.get("shadow_passes"), 0) > 0 else None,
                                   "position": _pair(k.get("position", "0, 0"), screen),
                                   "halign": k.get("halign", "center"), "valign": k.get("valign", "center")})
         elif b["type"] == "input-field" and len(out["inputs"]) < MAX_ITEMS:
