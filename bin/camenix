@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
-"""Avvia Camenix dal repository, ovunque sia clonato (anche tramite collegamento in ~/.local/bin)."""
-import os
-import sys
-
-root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, root)
-from camenix.cli import main  # noqa: E402
-
-sys.exit(main(sys.argv[1:]))
+#!/bin/sh
+# Apre Camenix. Se è già aperta, la mostra invece di aprirne una seconda.
+APP="$(dirname "$(readlink -f "$0")")/../app"
+APP="$(readlink -f "$APP")"
+if ! command -v qs >/dev/null 2>&1; then
+    notify-send "Camenix" "Serve Quickshell (comando qs) per aprire l'app." 2>/dev/null
+    echo "Camenix: serve Quickshell (comando qs)." >&2
+    exit 1
+fi
+qs -p "$APP" ipc call camenix show >/dev/null 2>&1 && exit 0
+exec setsid -f qs -p "$APP" >/dev/null 2>&1

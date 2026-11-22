@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "camenix")
+BIN = os.path.join(ROOT, "bin", "camenix-engine")
 
 
 def run(*args, env_extra=None):
@@ -26,7 +26,7 @@ class TestCli(unittest.TestCase):
     def test_status_without_theme(self):
         r = run("status")
         self.assertEqual(r.returncode, 0)
-        self.assertIn("camenix init", r.stdout)
+        self.assertIn("camenix-engine init", r.stdout)
 
     def test_status_json_is_stable(self):
         r = run("status", "--json")

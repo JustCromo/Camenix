@@ -1,6 +1,6 @@
 # Sicurezza / Security
 
-## Cosa fa Camenix (tappa 2)
+## Cosa fa Camenix (tappa 3)
 
 - Non usa la rete e non chiede privilegi di root.
 - Scrive il tema (`~/.config/camenix/theme.json`) e le config che hai collegato (`camenix setup` o `adopt`). Prima della prima modifica ne fa una copia in `~/.config/camenix/backups` (cartella 0700).
@@ -8,7 +8,10 @@
 - **Tutto o niente**: prima calcola ogni file in memoria. Se uno è stato modificato a mano o un modello non si può riempire (segnaposto sconosciuto o malformato), non scrive niente e non cambia il tema.
 - **Nessuna iniezione nelle config**: nei file finiscono solo colori di 6 cifre esadecimali e percorsi di sfondo assoluti senza caratteri di controllo (un "a capo" nel nome potrebbe aggiungere righe a una config).
 - **Comandi esterni** (`hyprctl`, `makoctl`, `swaybg`, `swww`) sempre con argomenti fissi, mai tramite shell. I segnali (ricarica di kitty, chiusura del vecchio swaybg) vanno solo ai processi del tuo utente.
-- **Sfondi**: accettati solo file con l'intestazione di un vero PNG, JPEG o WebP, fino a 64 MB.
+- **Sfondi**: accettati solo file con l'intestazione di un vero PNG, JPEG o WebP, fino a 64 MB. L'immagine scelta viene copiata in `~/.config/camenix/wallpapers` (0700).
+- **L'app non scrive le config**: salva solo la bozza (`~/.config/camenix/draft.json`) e le preferenze (`app.json`). Tutto il resto passa dal motore, che tratta la bozza come input non fidato, con le stesse regole del tema.
+- **Paracadute**: dopo *Applica*, se non confermi entro 15 secondi il tema precedente viene ripristinato dallo storico.
+- **Voce di menu**: il file `.desktop` contiene solo percorsi assoluti; percorsi con caratteri speciali (spazi, `;`, `$`, apici…) vengono rifiutati.
 - **Lettura difensiva**: il file non viene letto se è un collegamento simbolico o non è un file normale, e oltre i 64 KB viene ignorato. JSON rotto, colori non validi, ruoli sconosciuti e percorsi strani vengono scartati e sostituiti dai valori predefiniti.
 - **Scrittura atomica**: il tema viene scritto in un file temporaneo nella stessa cartella e poi sostituito in un colpo solo, così non resta mai a metà. Il collegamento simbolico al posto del tema viene rifiutato.
 - **Colori**: accettati solo nel formato `#RRGGBB`. Questo vale anche in `Theme.qml`, così nessun testo del file può diventare codice nell'interfaccia.
@@ -19,4 +22,4 @@ Apri una issue su GitHub **senza dettagli sfruttabili** e chiedi un contatto pri
 
 ---
 
-**English.** Camenix (step 2) uses no network and no root. It writes the theme and the config files you linked, after backing them up. Only regular files you own inside your home are touched; symlinks leaving home, directories, FIFOs and files over 1 MB are refused. Changes are all-or-nothing: hand-edited files or broken templates stop everything. Only 6-digit hex colors and validated absolute wallpaper paths are written into configs. External tools are called with fixed argv (no shell) and signals only reach your own processes. Wallpapers must be real PNG/JPEG/WebP files. Writes are atomic. Colors must match `#RRGGBB`, both in Python and in `Theme.qml`. To report a problem, open a GitHub issue without exploit details and ask for a private contact.
+**English.** Camenix (step 3) uses no network and no root. It writes the theme and the config files you linked, after backing them up. Only regular files you own inside your home are touched; symlinks leaving home, directories, FIFOs and files over 1 MB are refused. Changes are all-or-nothing: hand-edited files or broken templates stop everything. Only 6-digit hex colors and validated absolute wallpaper paths are written into configs. External tools are called with fixed argv (no shell) and signals only reach your own processes. Wallpapers must be real PNG/JPEG/WebP files and are copied into a private folder. The app itself only writes a draft and its preferences; the engine validates the draft like any untrusted input. After Apply, the previous theme is restored unless you confirm within 15 seconds. Writes are atomic. Colors must match `#RRGGBB`, both in Python and in `Theme.qml`. To report a problem, open a GitHub issue without exploit details and ask for a private contact.

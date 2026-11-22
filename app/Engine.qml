@@ -1,0 +1,184 @@
+// Camenix · collegamento tra l'interfaccia e il motore (camenix-engine)
+// Tiene il tema applicato (theme.json), la bozza che stai modificando e le preferenze dell'app.
+// Ogni operazione passa dal motore, che valida tutto: l'app non scrive mai le config da sola.
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+QtObject {
+    id: eng
+
+    readonly property string home: Quickshell.env("HOME")
+    readonly property string engine: Quickshell.shellDir + "/../bin/camenix-engine"
+    readonly property string cfgDir: home + "/.config/camenix"
+    readonly property string draftPath: cfgDir + "/draft.json"
+
+    property var current: null          // tema applicato
+    property var draft: null            // tema in modifica (quello mostrato nell'anteprima)
+    readonly property bool dirty: !!current && !!draft && JSON.stringify(current) !== JSON.stringify(draft)
+    property string mode: "light"       // tema dell'app: "light" | "dark"
+    property bool busy: false
+    property string error: ""           // messaggio da mostrare (una frase)
+    property var conflicts: []          // file modificati a mano che bloccano "Applica"
+    property bool awaitingKeep: false   // paracadute attivo
+    signal applied()
+    signal reverted()
+
+    function clone(o) { return JSON.parse(JSON.stringify(o)) }
+    function validHex(v) { return typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v) }
+
+    // ── tema applicato ─────────────────────────────────
+    property FileView themeFile: FileView {
+        path: eng.cfgDir + "/theme.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: eng.statusProc.running = true
+        onLoadFailed: eng.statusProc.running = true
+    }
+    // la lettura passa dal motore, che normalizza il file (valori mancanti o ostili -> predefiniti)
+    property Process statusProc: Process {
+        command: [eng.engine, "status", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const d = JSON.parse(text)
+                    const wasClean = !eng.dirty
+                    eng.current = d.theme
+                    if (!eng.draft || wasClean) eng.draft = eng.clone(d.theme)
+                } catch (e) { eng.error = "Non riesco a leggere il tema." }
+            }
+        }
+    }
+
+    // ── preferenze dell'app (chiaro/scuro) ─────────────
+    property FileView prefsFile: FileView {
+        path: eng.cfgDir + "/app.json"
+        onLoaded: {
+            try { const p = JSON.parse(text()); if (p.mode === "dark" || p.mode === "light") eng.mode = p.mode } catch (e) {}
+        }
+    }
+    function setMode(m) {
+        if (m !== "dark" && m !== "light") return
+        mode = m
+        prefsFile.setText(JSON.stringify({ mode: m }) + "\n")
+    }
+
+    // ── modifiche alla bozza ───────────────────────────
+    property FileView draftFile: FileView { path: eng.draftPath }
+    function saveDraft() { draftFile.setText(JSON.stringify(draft, null, 2) + "\n") }
+
+    function setColor(role, hex) {
+        if (!draft || !validHex(hex)) return false
+        const d = clone(draft)
+        if (role.indexOf("terminal.") === 0) d.terminal[role.slice(9)] = hex.toUpperCase()
+        else if (role in d.colors) d.colors[role] = hex.toUpperCase()
+        else return false
+        draft = d
+        saveDraft()
+        deriveProc.running = true        // le sfumature seguono il colore principale
+        return true
+    }
+    property Process deriveProc: Process {
+        command: [eng.engine, "derive", eng.draftPath]
+        stdout: StdioCollector {
+            onStreamFinished: { try { const d = JSON.parse(text); if (d && d.colors) eng.draft = d } catch (e) {} }
+        }
+    }
+
+    function discard() { if (current) draft = clone(current); error = ""; conflicts = [] }
+
+    // ── sfondo ─────────────────────────────────────────
+    property string pickingFor: "home"
+    property Process pickProc: Process {
+        command: ["sh", "-c", "if command -v zenity >/dev/null; then exec zenity --file-selection --title='Scegli uno sfondo' --file-filter='Immagini | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP'; elif command -v kdialog >/dev/null; then exec kdialog --getopenfilename \"$HOME\" 'image/png image/jpeg image/webp'; else exit 3; fi"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const p = text.trim()
+                if (p.length) { eng.importProc.command = [eng.engine, "import-wallpaper", p]; eng.importProc.running = true }
+            }
+        }
+        onExited: (code) => { if (code === 3) eng.error = "Per scegliere un file serve zenity (o kdialog)." }
+    }
+    function chooseWallpaper(kind) { if (!pickProc.running) { pickingFor = kind; pickProc.running = true } }
+    property Process importProc: Process {
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const r = JSON.parse(text)
+                    if (!r.ok) { eng.error = "Questo file non è un'immagine PNG, JPEG o WebP."; return }
+                    const d = eng.clone(eng.draft)
+                    if (eng.pickingFor === "lock") { d.wallpaper.lock = r.path; d.wallpaper.lock_same = false }
+                    else d.wallpaper.home = r.path
+                    eng.draft = d
+                } catch (e) { eng.error = "Non sono riuscito a importare l'immagine." }
+            }
+        }
+    }
+    function setLockSame(same) {
+        const d = clone(draft); d.wallpaper.lock_same = same; draft = d
+    }
+
+    // ── applica, paracadute, annulla ───────────────────
+    function apply() {
+        if (busy || !draft) return
+        busy = true; error = ""; conflicts = []
+        saveDraft()
+        applyProc.running = true
+    }
+    property Process applyProc: Process {
+        command: [eng.engine, "apply-file", eng.draftPath, "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                eng.busy = false
+                let r = null
+                try { r = JSON.parse(text) } catch (e) { eng.error = "Il motore non ha risposto."; return }
+                if (r.ok) { eng.awaitingKeep = true; eng.applied() }
+                else if (r.conflicts && r.conflicts.length) eng.conflicts = r.conflicts.map(c => c.file)
+                else eng.error = "Non ho applicato niente: un file collegato non è utilizzabile."
+            }
+        }
+    }
+    function keep() { awaitingKeep = false }
+    function revert() {
+        awaitingKeep = false
+        busy = true
+        undoProc.running = true
+    }
+    property Process undoProc: Process {
+        command: [eng.engine, "undo", "--json"]
+        stdout: StdioCollector { onStreamFinished: { eng.busy = false; eng.draft = null; eng.reverted() } }
+    }
+    // "tieni le mie modifiche": il file modificato a mano diventa il nuovo modello, poi riprova
+    function adoptAndRetry(file) {
+        adoptProc.command = [eng.engine, "adopt", file]
+        adoptProc.running = true
+    }
+    property Process adoptProc: Process {
+        onExited: (code) => { eng.conflicts = []; if (code === 0) eng.apply(); else eng.error = "Non sono riuscito a usare quel file." }
+    }
+    function resetColors() { busy = true; error = ""; resetProc.running = true }
+    property Process resetProc: Process {
+        command: [eng.engine, "reset-colors", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                eng.busy = false
+                try { const r = JSON.parse(text); if (!r.ok) eng.conflicts = (r.conflicts || []).map(c => c.file) } catch (e) {}
+                eng.draft = null
+            }
+        }
+    }
+
+    // ── contrasto (WCAG) ───────────────────────────────
+    function luminance(hex) {
+        const ch = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16) / 255)
+                             .map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+    }
+    function contrast(a, b) {
+        if (!validHex(a) || !validHex(b)) return 1
+        const la = luminance(a), lb = luminance(b)
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+    }
+
+    Component.onCompleted: prefsFile.reload()
+}

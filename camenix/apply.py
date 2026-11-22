@@ -10,7 +10,8 @@ import re
 import time
 from importlib import resources
 
-from camenix import files, render, system, theme as th, wallpaper
+from camenix import derive as dv, files, render, system, theme as th, wallpaper
+import shutil
 
 KITTY_INCLUDE = "include ~/.config/camenix/generated/kitty.conf"
 KITTY_MARK = "# Camenix: colori del tema (non togliere questa riga se usi Camenix)"
@@ -239,6 +240,82 @@ def undo():
     th.write(data)
     os.unlink(last)
     return apply()
+
+
+# ── per l'app ────────────────────────────────────────────
+def read_draft(path):
+    """Bozza scritta dall'app -> tema normalizzato. Stesse regole di sicurezza del tema vero."""
+    real = files.resolve(path)
+    if os.path.getsize(real) > th.MAX_BYTES:
+        raise files.UnsafeFile(path)
+    data = json.loads(files.read_text(real, limit=th.MAX_BYTES))
+    theme, _ = th.normalize(data)
+    return theme
+
+
+def derive_draft(path):
+    """Ricalcola le sfumature della bozza rispetto al tema attuale."""
+    draft = read_draft(path)
+    current, _, _ = th.read()
+    draft["colors"] = dv.derive(draft["colors"], current["colors"])
+    return draft
+
+
+def import_wallpaper(path):
+    """Copia l'immagine scelta in ~/.config/camenix/wallpapers (il tema non si rompe se l'originale
+    viene spostato o cancellato). -> percorso della copia, oppure None se non è un'immagine valida."""
+    src = os.path.realpath(os.path.expanduser(path))
+    if not wallpaper.is_image(src):
+        return None
+    with open(src, "rb") as f:
+        head = f.read(12)
+    ext = ".png" if head.startswith(b"\x89PNG") else ".webp" if head[:4] == b"RIFF" else ".jpg"
+    folder = cfg("wallpapers")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    import hashlib
+    h = hashlib.sha256()
+    with open(src, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    digest = h.hexdigest()[:16]
+    dest = os.path.join(folder, digest + ext)
+    if not os.path.exists(dest):
+        tmp = dest + ".tmp"
+        shutil.copyfile(src, tmp)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, dest)
+    return dest if th._valid_wallpaper(dest) else None
+
+
+def reset_colors():
+    """Colori originali, sfondo invariato."""
+    current, _, _ = th.read()
+    fresh = th.default_theme(current["name"])
+    fresh["wallpaper"] = current["wallpaper"]
+    return change_theme(fresh)
+
+
+def changed_from_defaults(theme):
+    d = th.default_theme()
+    return sum(1 for k, v in d["colors"].items() if theme["colors"].get(k) != v)
+
+
+def install_desktop_entry(repo_root):
+    """Voce nel menu delle applicazioni (rofi, launcher). Percorsi assoluti, nessun comando di shell."""
+    apps = os.path.expanduser("~/.local/share/applications")
+    os.makedirs(apps, exist_ok=True)
+    exe = os.path.join(repo_root, "bin", "camenix")
+    icon = os.path.join(repo_root, "app", "assets", "camenix.svg")
+    for p in (exe, icon):
+        if any(c in p for c in "\n\r\"'`$ ;&|<>"):
+            raise files.UnsafeFile(p)
+    text = ("[Desktop Entry]\nType=Application\nName=Camenix\nGenericName=Tema del desktop\n"
+            "Comment=Sfondo e colori del desktop Hyprland\n"
+            f"Exec={exe}\nIcon={icon}\nTerminal=false\nCategories=Settings;DesktopSettings;\n"
+            "Keywords=tema;sfondo;colori;wallpaper;theme;\n")
+    path = os.path.join(apps, "camenix.desktop")
+    files.atomic_write(path, text)
+    return path
 
 
 # ── prima configurazione ─────────────────────────────────

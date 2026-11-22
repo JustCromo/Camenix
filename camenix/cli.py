@@ -149,8 +149,18 @@ def cmd_apply(args, out, err):
     return _print_report(rep, args, out, err)
 
 
+def _warn_changed(out, err):
+    n = ap.changed_from_defaults(th.read()[0])
+    if n:
+        err.line(err.role(t("warn.theme_changed", n=n), "warn"))
+        err.line(err.role(t("warn.theme_changed_hint"), "dim"))
+    return n
+
+
 def cmd_setup(args, out, err):
     dry = "--dry-run" in args
+    if "--json" not in args:
+        _warn_changed(out, err)
     act = ap.setup(dry_run=dry)
     if "--json" in args:
         print(json.dumps(act, ensure_ascii=False))
@@ -226,6 +236,7 @@ def cmd_adopt(args, out, err):
     pos = [a for a in args if not a.startswith("--")]
     if len(pos) != 1:
         return _fail(err, t("err.usage", cmd="adopt"), t("adopt.unsafe_hint"))
+    _warn_changed(out, err)
     theme, _, _ = th.read()
     state = ap.load_state()
     try:
@@ -252,7 +263,56 @@ def cmd_forget(args, out, err):
     return _fail(err, t("forget.none", file=pos[0][:200]), t("forget.none_hint"), code=PROBLEM)
 
 
-COMMANDS = {"status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
+def _draft_arg(args, err):
+    pos = [a for a in args if not a.startswith("--")]
+    return pos[0] if len(pos) == 1 else None
+
+
+def cmd_derive(args, out, err):
+    path = _draft_arg(args, err)
+    try:
+        print(json.dumps(ap.derive_draft(path), ensure_ascii=False))
+        return OK
+    except (TypeError, files.UnsafeFile, OSError, ValueError):
+        print(json.dumps({"ok": False}))
+        return USAGE
+
+
+def cmd_apply_file(args, out, err):
+    path = _draft_arg(args, err)
+    try:
+        draft = ap.read_draft(path)
+    except (TypeError, files.UnsafeFile, OSError, ValueError):
+        print(json.dumps({"ok": False, "conflicts": [], "errors": [{"file": "draft", "why": "invalid"}]}))
+        return USAGE
+    return _print_report(ap.change_theme(draft), args + ["--json"], out, err, changed=True)
+
+
+def cmd_import(args, out, err):
+    path = _draft_arg(args, err)
+    dest = ap.import_wallpaper(path) if path else None
+    print(json.dumps({"ok": bool(dest), "path": dest}))
+    return OK if dest else PROBLEM
+
+
+def cmd_reset_colors(args, out, err):
+    rep = ap.reset_colors()
+    if "--json" not in args and rep.as_dict()["ok"]:
+        out.line(out.role(t("reset.done"), "ok"))
+        return OK
+    return _print_report(rep, args, out, err, changed=True)
+
+
+def cmd_install(args, out, err):
+    root = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0])))
+    path = ap.install_desktop_entry(root)
+    print(json.dumps({"ok": True, "desktop": path}) if "--json" in args else path)
+    return OK
+
+
+COMMANDS = {"derive": cmd_derive, "apply-file": cmd_apply_file, "import-wallpaper": cmd_import,
+            "reset-colors": cmd_reset_colors, "install": cmd_install,
+            "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
             "set": cmd_set, "wallpaper": cmd_wallpaper, "undo": cmd_undo, "adopt": cmd_adopt, "forget": cmd_forget}
 
 
