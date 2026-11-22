@@ -41,8 +41,8 @@ Item {
             readonly property var it: modelData
             x: lv.px(it, implicitWidth); y: lv.py(it, implicitHeight)
             textFormat: Text.PlainText                // il testo viene da un file: mai interpretato
-            text: it.kind === "time" ? "10:32"
-                : it.kind === "date" ? Qt.formatDate(new Date(), "dddd d MMMM")
+            text: it.kind === "time" ? Qt.formatTime(new Date(), "hh:mm")
+                : it.kind === "date" ? (it.text || Qt.formatDate(new Date(), "dddd d MMMM"))
                 : it.kind === "user" ? lv.user : it.text
             color: lv.first(it.color, "white")
             font.family: lv.font

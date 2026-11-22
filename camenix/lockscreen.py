@@ -64,6 +64,27 @@ def _pair(value, screen):
     return out
 
 
+DATE_FMT = re.compile(r"""\bdate\b[^+]*\+\s*["']?([%A-Za-z0-9 ,.:/\-]{1,40})""")
+
+
+def date_text(cmd):
+    """La data come la scriverebbe `date +FORMATO` (nella lingua del sistema), senza eseguire il comando:
+    del comando si prende solo il formato, fatto di lettere, cifre, spazi e pochi segni."""
+    import locale
+    import time
+    m = DATE_FMT.search(cmd)
+    fmt = m.group(1).strip() if m else "%A %d %B"
+    try:
+        locale.setlocale(locale.LC_TIME, "")
+    except locale.Error:
+        pass
+    try:
+        out = time.strftime(fmt)
+    except ValueError:
+        return ""
+    return "".join(ch for ch in out if ch.isprintable())[:60]
+
+
 def parse(text, screen=(1920, 1080)):
     """Testo di hyprlock.conf -> blocchi utili all'anteprima."""
     variables, blocks, stack = {}, [], []
@@ -99,9 +120,10 @@ def parse(text, screen=(1920, 1080)):
                                  "color": parse_color(k.get("color", ""))}
         elif b["type"] == "label" and len(out["labels"]) < MAX_ITEMS:
             t = k.get("text", "")
-            kind = "time" if "$TIME" in t else "date" if "date" in t else "user" if "$USER" in t else "text"
+            kind = "time" if "$TIME" in t else "date" if re.search(r"\bdate\b", t) else "user" if "$USER" in t else "text"
             plain = re.sub(r"<[^>]*>", "", t)
-            plain = "" if plain.startswith("cmd[") else "".join(ch for ch in plain if ch.isprintable())[:60]
+            plain = date_text(t) if kind == "date" else \
+                "" if plain.startswith("cmd[") else "".join(ch for ch in plain if ch.isprintable())[:60]
             out["labels"].append({"kind": kind, "text": plain, "color": parse_color(k.get("color", "")),
                                   "font_size": max(4, min(400, _num(k.get("font_size"), 16))),
                                   "bold": "bold" in k.get("font_family", "").lower(),

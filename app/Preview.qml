@@ -10,6 +10,8 @@ Rectangle {
     property var lockInfo: null           // com'è fatta la schermata di blocco vera (hyprlock.conf)
     property string user: ""
     readonly property bool realLock: !!lockInfo && lockInfo.found
+    readonly property real screenW: lockInfo && lockInfo.screen ? lockInfo.screen[0] : 1920
+    readonly property real k: width / screenW              // scala: pixel dello schermo vero -> anteprima
     readonly property var bg: realLock && lockInfo.background ? lockInfo.background : null
     property var highlight: []            // zone da illuminare (passando sopra un colore)
     function hl(z) { return highlight.indexOf(z) >= 0 }
@@ -29,11 +31,9 @@ Rectangle {
     }
     function a(hex, alpha) { return Qt.rgba(parseInt(hex.substr(1, 2), 16) / 255, parseInt(hex.substr(3, 2), 16) / 255, parseInt(hex.substr(5, 2), 16) / 255, alpha) }
 
-    radius: 18
+    radius: 22
     clip: true
     color: ui.panel
-    border.width: 1.5
-    border.color: ui.line
 
     Image {
         id: img
@@ -49,10 +49,11 @@ Rectangle {
         visible: pv.lock
         blurEnabled: true
         // come hyprlock: più passaggi e più grandezza = più sfocato; luminosità e vivacità dal file
-        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size / 21) : 1.0
-        blurMax: 48
+        // raggio come hyprlock (circa passaggi × grandezza × 2 pixel), riportato alla scala dell'anteprima
+        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size * 2 * pv.k / 64) : 0.6
+        blurMax: 64
         brightness: pv.bg ? Math.max(-1, Math.min(1, pv.bg.brightness - 1)) : -0.03
-        saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy)) : 0
+        saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy / 2)) : 0
     }
     Text {
         visible: pv.wall === ""
@@ -67,19 +68,30 @@ Rectangle {
     Item {
         anchors.fill: parent
         visible: !pv.lock && !!pv.theme
-        component Pill: Rectangle {
-            height: 16; radius: 8
-            color: pv.a(pv.c.glass || "#FBF8FF", 0.75)
-            border.width: 1
-            border.color: pv.c.accent || "#FFD25A"
-            property alias text: t.text
-            Glow { on: pv.hl("pills"); r: 8 }
-            Text { id: t; anchors.centerIn: parent; color: pv.c.text || "#1E1528"; font.family: ui.font; font.pixelSize: 8; font.bold: true }
+        // isole come quelle di Quickshell: vetro (sfondo al 40%) con bordo che sfuma da secondario chiaro ad accento
+        component Pill: Canvas {
+            id: pill
+            property string text: ""
+            height: Math.round(34 * pv.k)
+            readonly property string key: [pv.c.glass, pv.c.secondaryLight, pv.c.accent, width, height].join()
+            onKeyChanged: requestPaint()
+            onPaint: {
+                const ctx = getContext("2d"), r = height / 2, t = Math.max(1, 1.6 * pv.k)
+                ctx.reset()
+                ctx.beginPath(); ctx.roundedRect(t / 2, t / 2, width - t, height - t, r - t / 2, r - t / 2)
+                ctx.fillStyle = pv.a(pv.c.glass || "#FBF8FF", 0.4); ctx.fill()
+                const g = ctx.createLinearGradient(0, 0, width, 0)
+                g.addColorStop(0, pv.a(pv.c.secondaryLight || "#D4C8FA", 0.902))
+                g.addColorStop(1, pv.a(pv.c.accent || "#FFD25A", 0.902))
+                ctx.lineWidth = t; ctx.strokeStyle = g; ctx.stroke()
+            }
+            Glow { on: pv.hl("pills"); r: pill.height / 2 }
+            Text { anchors.centerIn: parent; text: pill.text; color: pv.c.text || "#1E1528"; font.family: ui.font; font.pixelSize: Math.max(6, 13 * pv.k); font.bold: true }
         }
-        Pill { x: 12; y: 8; width: 40; text: "● ○" }
-        Pill { anchors.horizontalCenter: parent.horizontalCenter; y: 8; width: 84; text: "10:32" }
-        Pill { anchors.right: parent.right; anchors.rightMargin: 12; y: 8; width: 40; text: "97%" }
-        Pill { anchors.right: parent.right; anchors.rightMargin: 58; y: 8; width: 38; text: "☁ 14°" }
+        Pill { x: 14 * pv.k; y: 10 * pv.k; width: 84 * pv.k; text: "● ○" }
+        Pill { anchors.horizontalCenter: parent.horizontalCenter; y: 10 * pv.k; width: 170 * pv.k; text: "10:32" }
+        Pill { anchors.right: parent.right; anchors.rightMargin: 14 * pv.k; y: 10 * pv.k; width: 84 * pv.k; text: "97%" }
+        Pill { anchors.right: parent.right; anchors.rightMargin: 108 * pv.k; y: 10 * pv.k; width: 84 * pv.k; text: "☁ 14°" }
 
         Rectangle {                         // finestra di kitty con il bordo di Hyprland (gradiente inizio → fine)
             x: parent.width * 0.06; y: parent.height * 0.22
@@ -152,4 +164,5 @@ Rectangle {
         }
     }
 
+    RoundCorners { radius: pv.radius; bg: ui.window; line: ui.line }
 }

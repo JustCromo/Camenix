@@ -188,6 +188,15 @@ input-field {
         self.assertEqual(f["inner"]["stops"][0], {"hex": "#FBECF0", "a": 0.251})
         self.assertEqual(d["background"]["blur_passes"], 3)
 
+    def test_date_never_runs_the_command(self):
+        from camenix import lockscreen
+        import time
+        self.assertEqual(lockscreen.date_text('cmd[update:60000] date +"%Y"'), time.strftime("%Y"))
+        evil = 'cmd[update:1] date +"%Y"; touch /tmp/camenix-pwned; $(id)'
+        self.assertEqual(lockscreen.date_text(evil), time.strftime("%Y"))
+        self.assertFalse(os.path.exists("/tmp/camenix-pwned"))
+        self.assertNotIn("$", lockscreen.date_text('date +"$(whoami)"'))
+
     def test_hostile_config(self):
         from camenix import lockscreen
         evil = "label {\n text = cmd[update:1] rm -rf ~\n font_size = 1e308\n position = nan, inf\n color = rgba(999,999,999,9)\n}\n" * 50

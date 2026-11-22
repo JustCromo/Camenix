@@ -102,7 +102,7 @@ def s5():
     call(eng(), "setMode", "dark")
 
 
-@step(800)
+@step(1500)
 def s6():
     shot("4-dark")
     with open(os.path.expanduser("~/.config/camenix/app.json")) as f:

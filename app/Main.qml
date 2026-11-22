@@ -238,7 +238,7 @@ Rectangle {
                     Row {
                         spacing: 14
                         Rectangle {
-                            width: 150; height: 86; radius: 12; clip: true
+                            width: 150; height: 86; radius: 12
                             color: pal.panel; border.width: 1; border.color: pal.line
                             Canvas {                    // miniatura: da qui si leggono anche i colori per le palette
                                 id: thumb
@@ -252,6 +252,9 @@ Rectangle {
                                     if (src === "" || !isImageLoaded(src)) return
                                     ctx.drawImage(src, 0, 0, width, height)
                                     try { main.wallColors = C.palette(ctx.getImageData(0, 0, width, height).data, 8) } catch (e) { main.wallColors = [] }
+                                    // angoli arrotondati: si "cancella" fuori dal rettangolo arrotondato
+                                    ctx.globalCompositeOperation = "destination-in"
+                                    ctx.beginPath(); ctx.roundedRect(0, 0, width, height, 11, 11); ctx.fill()
                                 }
                             }
                             Text { anchors.centerIn: parent; visible: thumb.src === ""; text: "nessuno"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
