@@ -101,6 +101,21 @@ function contrast(a, b) {
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
 }
 
+// scurisce (pannelli chiari) o schiarisce (pannelli scuri) un colore finché non si stacca da bg
+function ensure(hex, bg, target) {
+    const c = hexToRgb(hex)
+    if (!c) return hex
+    const v = rgbToHsv(c.r, c.g, c.b), darker = lum(bg) > 0.18
+    let out = normHex(hex)
+    for (let i = 0; i < 50 && contrast(out, bg) < target; i++) {
+        v.v = darker ? v.v - 0.02 : v.v + 0.02
+        if (!darker && v.v > 1) { v.v = 1; v.s = Math.max(0, v.s - 0.03) }   // già al massimo: meno saturo = più chiaro
+        if (v.v < 0) break
+        out = hsvToHex(v.h, v.s, v.v)
+    }
+    return out
+}
+
 // palette proposta dai colori di uno sfondo (quelli trovati da palette()).
 // L'accento è il colore più vivace, i bordi vanno dal più vivace al secondo; sfondo e testo delle isole
 // sono chiari (o scuri) con una punta della stessa tinta, e il testo è sempre leggibile.
@@ -114,10 +129,12 @@ function suggest(list, dark) {
     const glass = dark ? hsvToHex(a1.h, Math.min(0.35, a1.s), 0.14) : hsvToHex(a1.h, Math.min(0.06, a1.s), 0.985)
     let text = dark ? hsvToHex(a1.h, Math.min(0.08, a1.s), 0.97) : hsvToHex(a1.h, Math.min(0.4, a1.s), 0.15)
     if (contrast(text, glass) < 4.5) text = dark ? "#FFFFFF" : "#1A1A1A"
+    // accento e risalto finiscono anche su pallini e icone sopra i pannelli: devono staccarsi (almeno 3:1)
+    const acc = ensure(a1.hex, glass, 3), acc2 = ensure(a2.hex, glass, 3)
     return {
         glass: glass, text: text,
-        accent: a1.hex, accent2: a2.hex,
+        accent: acc, accent2: acc2,
         secondary: hsvToHex(a2.h, Math.min(0.45, Math.max(0.2, a2.s)), dark ? 0.7 : 0.88),
-        borderFrom: a1.hex, borderTo: a2.hex
+        borderFrom: acc, borderTo: acc2
     }
 }

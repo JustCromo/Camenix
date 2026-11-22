@@ -87,8 +87,16 @@ class TestColorJs(unittest.TestCase):
                 self.assertRegex(v, r"^#[0-9A-F]{6}$")
             self.assertGreaterEqual(self.ev(f'contrast("{p["text"]}", "{p["glass"]}")'), 4.5)   # testo leggibile
             self.assertEqual(p["accent"], p["borderFrom"])
+            for k in ("accent", "accent2"):                                   # pallini e icone visibili
+                self.assertGreaterEqual(self.ev(f'contrast("{p[k]}", "{p["glass"]}")'), 2.99, k)
         light, dark_ = self.ev(f"suggest({wall}, false)"), self.ev(f"suggest({wall}, true)")
         self.assertGreater(self.ev(f'lum("{light["glass"]}")'), self.ev(f'lum("{dark_["glass"]}")'))
+
+    def test_suggest_pastel_wallpaper(self):
+        # sfondo pastello (tipo Gudetama): l'accento giallo chiaro viene scurito quanto basta
+        p = self.ev('suggest(["#D4C8FA", "#FFE7A6", "#FBF8FF", "#F8AD41"], false)')
+        self.assertGreaterEqual(self.ev(f'contrast("{p["accent"]}", "{p["glass"]}")'), 2.99)
+        self.assertGreaterEqual(self.ev(f'contrast("{p["accent2"]}", "{p["glass"]}")'), 2.99)
 
     def test_suggest_hostile_or_empty(self):
         self.assertIsNone(self.ev("suggest([], false)"))
