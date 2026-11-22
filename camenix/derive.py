@@ -2,18 +2,18 @@
 
 Ogni sfumatura ricorda di quanto differisce (tonalità, saturazione, luminosità) dal suo colore
 principale nella palette originale, e applica la stessa differenza al colore nuovo.
-Le famiglie il cui colore principale non è cambiato restano identiche (nessun arrotondamento)."""
+Le famiglie il cui colore principale non è cambiato restano identiche (nessun arrotondamento).
+I due colori del bordo delle finestre (borderFrom, borderTo) li sceglie l'utente: non seguono nessuno."""
 import colorsys
 
 from camenix import theme as th
 
 FAMILY = {
     "accentHover": "accent", "accentSoft": "accent", "accentPale": "accent", "accentWarm": "accent",
-    "accentGlow": "accent", "borderTo": "accent",
+    "accentGlow": "accent",
     "accentDeep": "accent2", "accentDeeper": "accent2",
     "secondaryLight": "secondary", "secondaryPale": "secondary", "secondaryPaler": "secondary",
     "secondaryMist": "secondary", "secondaryDeep": "secondary", "secondaryDarker": "secondary",
-    "borderFrom": "secondary",
     "textAlt": "text", "textMuted": "text",
     "sheen": "glass", "paper": "glass", "borderIdle": "glass",
     "warningStrong": "warning", "caution": "warning",

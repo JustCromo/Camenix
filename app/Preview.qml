@@ -7,6 +7,8 @@ Rectangle {
     property var ui
     property var theme: null              // bozza
     property bool lock: false
+    property var highlight: []            // zone da illuminare (passando sopra un colore)
+    function hl(z) { return highlight.indexOf(z) >= 0 }
     property string label: lock ? "Blocco" : "Home"
     readonly property var c: theme ? theme.colors : ({})
     readonly property var term: theme ? theme.terminal : ({})
@@ -60,6 +62,7 @@ Rectangle {
             border.width: 1
             border.color: pv.c.accent || "#FFD25A"
             property alias text: t.text
+            Glow { on: pv.hl("pills"); r: 8 }
             Text { id: t; anchors.centerIn: parent; color: pv.c.text || "#1E1528"; font.family: ui.font; font.pixelSize: 8; font.bold: true }
         }
         Pill { x: 12; y: 8; width: 40; text: "● ○" }
@@ -67,13 +70,20 @@ Rectangle {
         Pill { anchors.right: parent.right; anchors.rightMargin: 12; y: 8; width: 40; text: "97%" }
         Pill { anchors.right: parent.right; anchors.rightMargin: 58; y: 8; width: 38; text: "☁ 14°" }
 
-        Rectangle {                         // finestra di kitty con il bordo di Hyprland
+        Rectangle {                         // finestra di kitty con il bordo di Hyprland (gradiente inizio → fine)
             x: parent.width * 0.06; y: parent.height * 0.22
             width: parent.width * 0.48; height: parent.height * 0.62
             radius: 8
-            color: pv.a(pv.term.background || "#000000", 0.85)
-            border.width: 2
-            border.color: pv.c.borderFrom || "#E0B0FF"
+            gradient: Gradient { orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: pv.c.borderFrom || "#E0B0FF" }
+                GradientStop { position: 1; color: pv.c.borderTo || "#FFBF00" } }
+            Glow { on: pv.hl("border"); r: 8 }
+            Rectangle {
+                anchors.fill: parent; anchors.margins: 2.5
+                radius: 6
+                color: pv.term.background || "#000000"
+                Glow { on: pv.hl("term"); r: 6; anchors.margins: 3 }
+            }
             Column {
                 x: 10; y: 8; spacing: 3
                 Text { textFormat: Text.StyledText; font.family: ui.font; font.pixelSize: 9; color: pv.term.foreground || "#DDDDDD"
@@ -91,6 +101,7 @@ Rectangle {
             color: pv.c.secondaryLight || "#D4C8FA"
             border.width: 1.5
             border.color: pv.c.textAlt || "#2B2236"
+            Glow { on: pv.hl("menu"); r: 10 }
             Column {
                 x: 8; y: 8; width: parent.width - 16; spacing: 5
                 Rectangle { width: parent.width; height: 16; radius: 8; color: pv.a(pv.c.paper || "#FFF4DA", 0.95); border.width: 1; border.color: pv.a(pv.c.accentGlow || "#F5A623", 0.35)
@@ -109,13 +120,15 @@ Rectangle {
         visible: pv.lock && !!pv.theme
         anchors.centerIn: parent
         spacing: 8
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "10:32"; color: pv.a(pv.c.textAlt || "#2B2236", 0.93); font.family: ui.font; font.pixelSize: 34; font.weight: Font.ExtraBold }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "10:32"; color: pv.a(pv.c.textAlt || "#2B2236", 0.93); font.family: ui.font; font.pixelSize: 34; font.weight: Font.ExtraBold
+               Glow { on: pv.hl("clock"); r: 8 } }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 170; height: 24; radius: 12
             color: pv.a(pv.c.glass || "#FBF8FF", 0.25)
             border.width: 2
             border.color: pv.c.accent || "#FFD25A"
+            Glow { on: pv.hl("lock"); r: 12 }
         }
     }
 

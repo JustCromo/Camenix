@@ -1,4 +1,4 @@
-// riquadro di un colore del tema: anteprima, nome, #hex e (per il testo) controllo di leggibilità
+// riquadro di un colore: pallino, nome e #hex (per il testo anche la leggibilità)
 import QtQuick
 
 Rectangle {
@@ -9,47 +9,34 @@ Rectangle {
     property string note: ""
     property bool noteOk: true
     property bool selected: false
+    readonly property alias hovered: area.containsMouse
     signal clicked()
-    implicitHeight: 112
-    radius: 16
+    implicitHeight: 56
+    radius: 14
     color: area.containsMouse ? ui.hover : ui.card
     border.width: 1.5
-    border.color: selected ? ui.accent2 : ui.line
+    border.color: selected || area.containsMouse ? ui.accent2 : ui.line
+    Behavior on color { ColorAnimation { duration: 100 } }
     Rectangle {
         id: chip
-        x: 8; y: 8
-        width: parent.width - 16
-        height: 58
+        x: 8; anchors.verticalCenter: parent.verticalCenter
+        width: 38; height: 38
         radius: 10
         color: sw.hex
         border.width: 1
-        border.color: Qt.rgba(0, 0, 0, 0.12)
+        border.color: Qt.rgba(0, 0, 0, 0.15)
     }
-    Text {
-        x: 10; anchors.top: chip.bottom; anchors.topMargin: 6
-        width: parent.width - 20
-        elide: Text.ElideRight
-        text: sw.label
-        color: ui.fg
-        font.family: ui.font
-        font.pixelSize: 12
-    }
-    Text {
-        x: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
-        text: sw.hex
-        color: ui.muted
-        font.family: ui.font
-        font.pixelSize: 11
-    }
-    Text {
-        visible: sw.note !== ""
-        anchors.right: parent.right; anchors.rightMargin: 10
-        anchors.bottom: parent.bottom; anchors.bottomMargin: 8
-        text: sw.note
-        color: sw.noteOk ? ui.ok : ui.bad
-        font.family: ui.font
-        font.pixelSize: 10
-        font.weight: Font.Bold
+    Column {
+        anchors.left: chip.right; anchors.leftMargin: 9
+        anchors.right: parent.right; anchors.rightMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 2
+        Text { width: parent.width; elide: Text.ElideRight; text: sw.label; color: ui.fg; font.family: ui.font; font.pixelSize: 12; font.weight: Font.Bold }
+        Row {
+            spacing: 6
+            Text { text: sw.hex; color: ui.muted; font.family: ui.font; font.pixelSize: 10 }
+            Text { visible: sw.note !== ""; text: sw.note; color: sw.noteOk ? ui.ok : ui.bad; font.family: ui.font; font.pixelSize: 10; font.weight: Font.Bold }
+        }
     }
     MouseArea {
         id: area

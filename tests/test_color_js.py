@@ -1,0 +1,82 @@
+"""Conti sui colori del selettore (app/color.js), eseguiti nel motore JavaScript di Qt.
+Richiede PySide6; senza, il test viene saltato."""
+import os
+import unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from PySide6.QtQml import QJSEngine
+    HAVE_QT = True
+except ImportError:
+    HAVE_QT = False
+
+
+@unittest.skipUnless(HAVE_QT, "PySide6 non installato")
+class TestColorJs(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from PySide6.QtCore import QCoreApplication
+        cls.app = QCoreApplication.instance() or QCoreApplication([])
+        cls.js = QJSEngine()
+        with open(os.path.join(ROOT, "app", "color.js")) as f:
+            src = f.read().replace(".pragma library", "", 1)
+        r = cls.js.evaluate(src)
+        assert not r.isError(), r.toString()
+
+    def ev(self, expr):
+        r = self.js.evaluate(expr)
+        self.assertFalse(r.isError(), r.toString())
+        return r.toVariant()
+
+    def test_normhex(self):
+        self.assertEqual(self.ev('normHex("#ffd25a")'), "#FFD25A")
+        self.assertEqual(self.ev('normHex(" FFD25A ")'), "#FFD25A")
+        for bad in ('"#FFD25"', '"#FFD25AA"', '"red"', '"#GG0000"', "null", "42", '"#FFF"', '"#FF0000; x"'):
+            self.assertEqual(self.ev(f"normHex({bad})"), "", bad)
+
+    def test_round_trip_every_step(self):
+        # ogni colore passa da HSV e torna identico
+        bad = self.ev("""(function () { let n = 0
+            for (let r = 0; r < 256; r += 15) for (let g = 0; g < 256; g += 17) for (let b = 0; b < 256; b += 51) {
+                const h = rgbToHsv(r, g, b), c = hsvToRgb(h.h, h.s, h.v)
+                if (c.r !== r || c.g !== g || c.b !== b) n++ }
+            return n })()""")
+        self.assertEqual(bad, 0)
+
+    def test_known_values(self):
+        self.assertEqual(self.ev("hsvToHex(0, 1, 1)"), "#FF0000")
+        self.assertEqual(self.ev("hsvToHex(120, 1, 1)"), "#00FF00")
+        self.assertEqual(self.ev("hsvToHex(240, 1, 1)"), "#0000FF")
+        self.assertEqual(self.ev("hsvToHex(360, 1, 1)"), "#FF0000")
+        self.assertEqual(self.ev("hsvToHex(-120, 1, 1)"), "#0000FF")
+
+    def test_hostile_numbers_are_clamped(self):
+        self.assertEqual(self.ev("rgbToHex(300, -5, NaN)"), "#FF0000")
+        self.assertEqual(self.ev("hsvToHex(NaN, 9, -1)"), "#000000")
+        self.assertEqual(self.ev('rgbToHex("x", 1e9, undefined)'), "#00FF00")
+
+    def test_palette(self):
+        # 3/4 rosso, 1/4 blu, qualche pixel trasparente: rosso prima, blu dopo, trasparenti ignorati
+        cols = self.ev("""(function () { const d = []
+            for (let i = 0; i < 300; i++) d.push(250, 10, 10, 255)
+            for (let i = 0; i < 100; i++) d.push(10, 10, 250, 255)
+            for (let i = 0; i < 900; i++) d.push(0, 255, 0, 0)
+            return palette(d, 8) })()""")
+        self.assertEqual(cols[:2], ["#FA0A0A", "#0A0AFA"])
+        self.assertEqual(len(cols), 2)
+
+    def test_palette_empty_and_broken(self):
+        self.assertEqual(self.ev("palette([], 8)"), [])
+        self.assertEqual(self.ev("palette(null, 8)"), [])
+        self.assertEqual(self.ev("palette([1, 2, 3], 8)"), [])       # pixel incompleto
+
+    def test_palette_limits_and_distance(self):
+        cols = self.ev("""(function () { const d = []
+            for (let k = 0; k < 64; k++) for (let i = 0; i < 5; i++) d.push((k * 37) % 256, (k * 91) % 256, (k * 53) % 256, 255)
+            return palette(d, 8) })()""")
+        self.assertLessEqual(len(cols), 8)
+        self.assertEqual(len(set(cols)), len(cols))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -17,7 +17,7 @@ QtObject {
     readonly property bool dirty: !!current && !!draft && JSON.stringify(current) !== JSON.stringify(draft)
     property string mode: "light"       // tema dell'app: "light" | "dark"
     property bool busy: false
-    readonly property var baseRoles: ["text", "glass", "accent", "accent2", "secondary", "success", "warning", "error"]
+    readonly property var baseRoles: ["text", "glass", "accent", "accent2", "secondary", "success", "warning", "error", "borderFrom", "borderTo"]
     property string error: ""           // messaggio da mostrare (una frase)
     property var conflicts: []          // file modificati a mano che bloccano "Applica"
     property bool awaitingKeep: false   // paracadute attivo

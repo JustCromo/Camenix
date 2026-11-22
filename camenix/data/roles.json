@@ -138,12 +138,12 @@
     },
     {
       "key": "borderFrom",
-      "group": "derived",
+      "group": "base",
       "default": "#E0B0FF"
     },
     {
       "key": "borderTo",
-      "group": "derived",
+      "group": "base",
       "default": "#FFBF00"
     },
     {

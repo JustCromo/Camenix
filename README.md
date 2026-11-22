@@ -2,7 +2,7 @@
 
 **Camenix** è l'app che cambia **sfondo e colori** del desktop Hyprland. Carichi un'immagine, ritocchi i colori guardando l'anteprima di home e schermata di blocco, e premi **Applica**. Fa parte della suite *-nix* (Vulpnix, Racoonix, Apernix, Strinix, Erinix).
 
-> **Stato: in sviluppo (tappa 3 di 5).** L'app c'è: anteprima, colori, sfondo, *Applica* con paracadute, tema chiaro/scuro. In arrivo: palette generata dallo sfondo e ruota dei colori (tappa 4), tema GTK (tappa 5).
+> **Stato: in sviluppo (tappa 4 di 5).** L'app c'è: anteprima, colori per zona con selettore (ruota, R G B, colori dello sfondo), sfondo, *Applica* con paracadute, tema chiaro/scuro. In arrivo: palette proposta in automatico dallo sfondo (fine tappa 4), tema GTK (tappa 5).
 
 ## Come si usa
 
@@ -10,7 +10,8 @@ Apri **Camenix** dal menu delle applicazioni (o con il comando `camenix`).
 
 - **Anteprima**: a sinistra vedi il desktop (isole, terminale, menu) e la schermata di blocco con i colori che stai scegliendo. Il desktop vero non cambia finché non premi *Applica*.
 - **Carica sfondo…**: scegli un PNG, JPEG o WebP. Camenix ne tiene una copia, quindi il tema non si rompe se sposti l'originale. Con l'interruttore decidi se il blocco usa lo stesso sfondo (sfocato) o uno diverso.
-- **Colori**: clicca un riquadro e scegli il nuovo colore. Le **sfumature** (hover, bordi, varianti chiare e scure) seguono da sole. Su *Testo* c'è il controllo di leggibilità.
+- **Colori, per zona**: *Isole e menu*, *Bordi delle finestre* (inizio e fine del gradiente), *Terminale*, *Avvisi*. Passando il mouse su un colore, nell'anteprima si illumina dove compare. Le **sfumature** (hover, varianti chiare e scure) seguono da sole; i due colori dei bordi li scegli tu. Su *Testo* c'è il controllo di leggibilità.
+- **Selettore**: anello delle tinte con il quadrato saturazione/luminosità, cursori **R G B**, campo `#hex`, i colori principali del tuo sfondo e quelli del tema, *prima/dopo*. Invio conferma solo un `#hex` completo.
 - **Applica ✓**: il tema va su tutto il desktop e compare *"Tenere il nuovo tema?"*. Se non premi **Tieni** entro 15 secondi, torna quello di prima: utile se un colore rende lo schermo illeggibile.
 - **Colori originali**: torna alla palette di partenza tenendo lo sfondo.
 - **☀ / ☾**: tema chiaro o scuro dell'app (ricordato).

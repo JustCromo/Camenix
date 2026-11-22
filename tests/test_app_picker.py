@@ -1,0 +1,63 @@
+"""Il selettore dei colori usato col mouse e con la tastiera (simulati), sull'app vera e una home finta.
+Richiede PySide6; senza, il test viene saltato."""
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+from tests.fakehome import CONFIGS, png
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    import PySide6  # noqa: F401
+    HAVE_QT = True
+except ImportError:
+    HAVE_QT = False
+
+
+@unittest.skipUnless(HAVE_QT, "PySide6 non installato")
+class TestPicker(unittest.TestCase):
+    def test_mouse_and_keyboard(self):
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        for rel, text in CONFIGS.items():
+            p = pathlib.Path(home, rel)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text)
+        wall = png(os.path.join(home, "sfondo.png"))
+        env = {"HOME": home, "PATH": "/usr/bin:/bin", "QT_QPA_PLATFORM": "offscreen", "LANG": "C.UTF-8"}
+        engine = [sys.executable, os.path.join(ROOT, "bin", "camenix-engine")]
+        subprocess.run(engine + ["setup"], env=env, capture_output=True, timeout=60, check=True)
+        subprocess.run(engine + ["wallpaper", "set", wall], env=env, capture_output=True, timeout=60)
+        shots = os.path.join(home, "foto")
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "app_picker_run.py"), shots],
+                           env=env, capture_output=True, text=True, timeout=120)
+        s = json.loads(pathlib.Path(shots, "report.json").read_text())
+        self.assertEqual(s["errors"], [], r.stderr[-2000:])
+        s = s["steps"]
+        self.assertEqual(s["hover_zones"], ["pills", "menu", "lock"])     # il passaggio illumina l'anteprima
+        self.assertEqual(s["editor_role"], "accent")
+        self.assertTrue(s["wall_colors"])                                # colori letti dallo sfondo
+        self.assertEqual(s["hue_after_ring"], 120)                       # anello: tinta verde
+        self.assertEqual(s["hex_after_square"], "#3F7F3F")               # quadrato: metà saturazione/luminosità
+        self.assertEqual(s["hex_after_slider"], "#FF7F3F")               # R oltre la fine: fermo a 255
+        self.assertEqual(s["hex_after_wall_dot"], s["wall_colors"][-1])  # pallino dello sfondo
+        self.assertEqual(s["open_after_bad_enter"], "accent")            # "12" + Invio: non conferma niente
+        self.assertEqual(s["hex_typed"], "#3FE0D0")                      # lettere non valide rifiutate
+        self.assertTrue(s["editor_closed"])
+        self.assertEqual(s["draft_accent"], "#3FE0D0")
+        self.assertTrue(s["dirty"] and s["apply_enabled"])               # Applica si accende
+        self.assertEqual(s["theme_untouched"], "#FFD25A")                # niente cambia prima di Applica
+        self.assertEqual(s["draft_border"], "#FF00AA")                   # bordo scelto a mano, non ricalcolato
+        self.assertEqual(s["applied"], ["#3FE0D0", "#FF00AA"])
+        self.assertTrue(s["hypr_border"])                                # arrivato fino a Hyprland
+        self.assertFalse(s["awaiting"])                                  # "Tieni" chiude il paracadute
+        self.assertEqual(s["kept"], "#3FE0D0")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -7,6 +7,8 @@
   "role.success": "Successo",
   "role.warning": "Avviso",
   "role.error": "Errore",
+  "role.borderFrom": "Bordo finestre · inizio",
+  "role.borderTo": "Bordo finestre · fine",
   "group.base": "Colori principali",
   "group.derived": "Sfumature (calcolate)",
   "status.title": "Tema attivo: {name}",

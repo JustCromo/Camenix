@@ -29,13 +29,30 @@ Rectangle {
     }
     color: pal.window
 
-    // ruoli mostrati come riquadri
-    readonly property var roles: [
-        { key: "glass", label: "Vetro isole" }, { key: "text", label: "Testo", against: "glass" },
-        { key: "accent", label: "Accento" }, { key: "accent2", label: "Accento 2" },
-        { key: "secondary", label: "Secondario" }, { key: "terminal.background", label: "Terminale" },
-        { key: "success", label: "Successo" }, { key: "warning", label: "Avviso" }, { key: "error", label: "Errore" }
+    // colori raggruppati per zona del desktop: nome concreto, dove si vede, cosa illuminare nell'anteprima
+    readonly property var sections: [
+        { title: "Isole e menu", hint: "", items: [
+            { key: "glass", label: "Sfondo", against: "text", zones: ["pills", "menu", "lock"],
+              desc: "Lo sfondo delle isole, dei menu e delle notifiche." },
+            { key: "text", label: "Testo", against: "glass", zones: ["pills", "menu", "clock"],
+              desc: "Le scritte su isole, menu e notifiche, e l'orologio del blocco." },
+            { key: "accent", label: "Evidenziato", zones: ["pills", "menu", "lock"],
+              desc: "Il contorno delle isole, la voce scelta nei menu e il campo password del blocco." },
+            { key: "accent2", label: "Risalto", zones: ["menu"],
+              desc: "La riga sotto la voce scelta e i dettagli in risalto (pulsanti attivi, avanzamento)." },
+            { key: "secondary", label: "Dettagli", zones: ["menu"],
+              desc: "Il colore di fondo dei menu e delle parti secondarie (sfumature chiare e scure)." } ] },
+        { title: "Bordi delle finestre", hint: "gradiente", items: [
+            { key: "borderFrom", label: "Inizio", zones: ["border"], desc: "Il bordo della finestra attiva parte da questo colore…" },
+            { key: "borderTo", label: "Fine", zones: ["border"], desc: "…e sfuma fino a questo." } ] },
+        { title: "Terminale", hint: "", items: [
+            { key: "terminal.background", label: "Sfondo", zones: ["term"], desc: "Lo sfondo di kitty." } ] },
+        { title: "Avvisi", hint: "nelle notifiche e nelle isole", items: [
+            { key: "success", label: "Tutto ok", zones: [], desc: "Conferme e stati positivi (es. batteria in carica)." },
+            { key: "warning", label: "Attenzione", zones: [], desc: "Avvisi da tenere d'occhio (es. batteria bassa)." },
+            { key: "error", label: "Errore", zones: [], desc: "Errori e notifiche urgenti." } ] }
     ]
+    property var hoverZones: []             // zone dell'anteprima da illuminare
     function hexOf(key) {
         if (!eng.draft) return "#000000"
         return key.indexOf("terminal.") === 0 ? eng.draft.terminal[key.slice(9)] : eng.draft.colors[key]
@@ -100,8 +117,8 @@ Rectangle {
         width: parent.width * 0.53
         height: parent.height - y - bottom.height - 20
         Text { id: h1; text: "ANTEPRIMA"; color: pal.heading; font.family: pal.font; font.pixelSize: 12; font.letterSpacing: 1.5; font.weight: Font.Bold }
-        Preview { id: homePv; ui: pal; theme: main.eng.draft; anchors.top: h1.bottom; anchors.topMargin: 10; width: parent.width; height: (parent.height - 120) * 0.62 }
-        Preview { id: lockPv; ui: pal; theme: main.eng.draft; lock: true; anchors.top: homePv.bottom; anchors.topMargin: 12; width: parent.width; height: (parent.height - 120) * 0.38 }
+        Preview { id: homePv; ui: pal; theme: main.eng.draft; highlight: main.hoverZones; anchors.top: h1.bottom; anchors.topMargin: 10; width: parent.width; height: (parent.height - 120) * 0.62 }
+        Preview { id: lockPv; ui: pal; theme: main.eng.draft; highlight: main.hoverZones; lock: true; anchors.top: homePv.bottom; anchors.topMargin: 12; width: parent.width; height: (parent.height - 120) * 0.38 }
         Row {
             anchors.top: lockPv.bottom; anchors.topMargin: 14
             spacing: 12
@@ -128,30 +145,59 @@ Rectangle {
         y: 92
         height: left.height
         Text { id: h2; text: "COLORI"; color: pal.heading; font.family: pal.font; font.pixelSize: 12; font.letterSpacing: 1.5; font.weight: Font.Bold }
-        Text { anchors.right: parent.right; anchors.verticalCenter: h2.verticalCenter; text: "le sfumature seguono da sole"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
-        Grid {
+        Text { anchors.right: parent.right; anchors.verticalCenter: h2.verticalCenter; text: "passa sopra un colore: si illumina dove compare"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
+        Column {
             id: grid
-            anchors.top: h2.bottom; anchors.topMargin: 10
+            anchors.top: h2.bottom; anchors.topMargin: 12
             width: parent.width
-            columns: 3
-            spacing: 12
+            spacing: 14
             Repeater {
-                model: main.roles
-                Swatch {
+                model: main.sections
+                Column {
+                    id: sec
                     required property var modelData
-                    ui: pal
-                    width: (grid.width - 24) / 3
-                    label: modelData.label
-                    hex: main.hexOf(modelData.key)
-                    selected: editor.role === modelData.key
-                    readonly property real ratio: modelData.against ? main.eng.contrast(hex, main.hexOf(modelData.against)) : 0
-                    note: modelData.against ? (ratio >= 4.5 ? "leggibile ✓" : "poco leggibile ⚠") : ""
-                    noteOk: ratio >= 4.5
-                    onClicked: {
-                        editor.label = modelData.label
-                        editor.against = modelData.against ? main.hexOf(modelData.against) : (modelData.key === "glass" ? main.hexOf("text") : "")
-                        editor.startHex = hex
-                        editor.role = modelData.key
+                    width: grid.width
+                    spacing: 7
+                    Row {
+                        spacing: 8
+                        Text { text: sec.modelData.title; color: pal.fg; font.family: pal.font; font.pixelSize: 12; font.weight: Font.ExtraBold }
+                        Text { anchors.baseline: parent.children[0].baseline; text: sec.modelData.hint; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
+                    }
+                    Grid {
+                        columns: 3
+                        spacing: 8
+                        Repeater {
+                            model: sec.modelData.items
+                            Swatch {
+                                required property var modelData
+                                ui: pal
+                                width: (grid.width - 16) / 3
+                                label: modelData.label
+                                hex: main.hexOf(modelData.key)
+                                selected: editor.role === modelData.key
+                                readonly property real ratio: modelData.key === "text" ? main.eng.contrast(hex, main.hexOf("glass")) : 0
+                                note: modelData.key === "text" ? (ratio >= 4.5 ? "leggibile ✓" : "poco leggibile ⚠") : ""
+                                noteOk: ratio >= 4.5
+                                onHoveredChanged: main.hoverZones = hovered ? modelData.zones : []
+                                onClicked: {
+                                    main.hoverZones = []
+                                    editor.label = sec.modelData.title + " · " + modelData.label
+                                    editor.desc = modelData.desc
+                                    editor.against = modelData.against ? main.hexOf(modelData.against) : ""
+                                    editor.startHex = hex
+                                    editor.role = modelData.key
+                                }
+                            }
+                        }
+                        Rectangle {                  // anteprima del gradiente dei bordi, accanto ai due colori
+                            visible: sec.modelData.hint === "gradiente"
+                            width: (grid.width - 16) / 3; height: 56; radius: 14
+                            gradient: Gradient { orientation: Gradient.Horizontal
+                                GradientStop { position: 0; color: main.hexOf("borderFrom") }
+                                GradientStop { position: 1; color: main.hexOf("borderTo") } }
+                            Rectangle { anchors.fill: parent; anchors.margins: 4; radius: 10; color: pal.window
+                                Text { anchors.centerIn: parent; text: "finestra attiva"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 } }
+                        }
                     }
                 }
             }
@@ -232,6 +278,7 @@ Rectangle {
         id: editor
         ui: pal
         eng: main.eng
+        wallpaper: main.eng.draft && main.eng.draft.wallpaper.home ? main.eng.draft.wallpaper.home : ""
         onDone: (hex) => { main.eng.setColor(role, hex); role = "" }
         onCancel: role = ""
     }
