@@ -1,5 +1,5 @@
 pragma Singleton
-// Camenix · tema per Quickshell
+// Camenix · tema per Quickshell (generato da tools/gen_theme_qml.py: non modificare a mano)
 // Legge ~/.config/camenix/theme.json e si aggiorna da solo quando il file cambia.
 // Uso nei file QML:  color: Theme.text   ·   color: Theme.a(Theme.text, 0.6)
 // Un file mancante, rotto o ostile non rompe nulla: si usano i colori predefiniti.
@@ -10,7 +10,7 @@ import Quickshell.Io
 Singleton {
     id: theme
 
-    // palette predefinita (= preset "Gudetama"); generata da camenix/data/roles.json
+    // palette predefinita (= preset "Gudetama")
     readonly property var defaults: ({
         text: "#1E1528",
         glass: "#FBF8FF",
@@ -38,7 +38,12 @@ Singleton {
         warningStrong: "#D4661A",
         caution: "#C99A1E",
         errorBright: "#D6455E",
-        errorPale: "#FFD9DE"
+        errorPale: "#FFD9DE",
+        borderFrom: "#E0B0FF",
+        borderTo: "#FFBF00",
+        borderIdle: "#FEFEFA",
+        paper: "#FFF4DA",
+        textMuted: "#8A7FA8"
     })
     property var values: defaults
     property string name: "Gudetama"
@@ -72,6 +77,11 @@ Singleton {
     readonly property color caution: values.caution
     readonly property color errorBright: values.errorBright
     readonly property color errorPale: values.errorPale
+    readonly property color borderFrom: values.borderFrom
+    readonly property color borderTo: values.borderTo
+    readonly property color borderIdle: values.borderIdle
+    readonly property color paper: values.paper
+    readonly property color textMuted: values.textMuted
 
     // colore con trasparenza, identico al vecchio "#AARRGGBB" (es. a(Theme.text, 0.6))
     function a(c, alpha) {

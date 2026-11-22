@@ -4,7 +4,7 @@ import locale
 import os
 import sys
 
-from camenix import __version__, theme as th
+from camenix import __version__, apply as ap, files, theme as th, wallpaper as wpm
 from camenix.i18n import t
 
 USAGE = 2
@@ -51,8 +51,9 @@ def cmd_status(args, out, err):
     except th.UnsafePath as e:
         return _fail(err, t("err.unsafe_path", path=str(e)), t("err.unsafe_hint"))
     if "--json" in args:
-        print(json.dumps({"version": __version__, "path": th.theme_path(), "exists": exists,
-                          "theme": theme, "problems": _problems_text(problems)}, ensure_ascii=False))
+        print(json.dumps({"version": __version__, "path": th.theme_path(), "exists": exists, "theme": theme,
+                          "managed": [f["target"] for f in ap.load_state()["files"]],
+                          "problems": _problems_text(problems)}, ensure_ascii=False))
         return PROBLEM if problems else OK
     out.line(out.role(t("status.title", name=theme["name"]), "title"))
     out.line(out.role(t("status.file", path=th.theme_path()), "dim"))
@@ -66,6 +67,12 @@ def cmd_status(args, out, err):
             if r["group"] == group:
                 label = t(f"role.{r['key']}") if group == "base" else r["key"]
                 out.line(f"  {out.swatch(theme['colors'][r['key']])} {theme['colors'][r['key']]}  {label}")
+        out.line()
+    managed = [f["target"] for f in ap.load_state()["files"]]
+    if managed:
+        out.line(out.role(t("status.managed"), "title"))
+        for f in managed:
+            out.line(f"  {f}")
         out.line()
     if problems:
         out.line(out.role(t("status.problems", n=len(problems)), "warn"))
@@ -114,7 +121,139 @@ def _fail(err, message, hint, code=USAGE):
     return code
 
 
-COMMANDS = {"status": cmd_status, "init": cmd_init, "check": cmd_check}
+def _print_report(rep, args, out, err):
+    if "--json" in args:
+        print(json.dumps(rep.as_dict(), ensure_ascii=False))
+    else:
+        for c in rep.conflicts:
+            err.line(err.role(t("apply.conflict", file=c["file"]), "err"))
+            err.line(err.role(t("apply.conflict_hint", file=c["file"]), "dim"))
+        for e in rep.errors:
+            err.line(err.role(t("apply.error", file=e["file"], why=e["why"]), "err"))
+            err.line(err.role(t("apply.error_hint", file=e["file"]), "dim"))
+        if not (rep.conflicts or rep.errors):
+            for f in rep.written:
+                out.line("  " + t("apply.written", file=f))
+            for r in rep.reloaded:
+                out.line("  " + t("apply.reloaded", what=r))
+            if rep.wallpaper:
+                key = "apply.wallpaper" if rep.wallpaper["ok"] else "apply.wallpaper_fail"
+                out.line("  " + t(key, path=rep.wallpaper["path"]))
+            done = rep.written or rep.reloaded or rep.wallpaper
+            out.line(out.role(t("apply.ok") if done else t("apply.nothing"), "ok"))
+    return PROBLEM if (rep.conflicts or rep.errors) else OK
+
+
+def cmd_apply(args, out, err):
+    rep = ap.apply(dry_run="--dry-run" in args)
+    return _print_report(rep, args, out, err)
+
+
+def cmd_setup(args, out, err):
+    dry = "--dry-run" in args
+    act = ap.setup(dry_run=dry)
+    if "--json" in args:
+        print(json.dumps(act, ensure_ascii=False))
+        return OK
+    out.line(out.role(t("setup.title"), "title"))
+    if act["theme"]:
+        out.line("  " + t("setup.theme", path=act["theme"]))
+    if act["wallpaper"]:
+        out.line("  " + t("setup.wallpaper", path=act["wallpaper"]))
+    if act["kitty"]:
+        out.line("  " + t("setup.kitty"))
+    for a in act["adopted"]:
+        if a["colors"]:
+            out.line("  " + t("setup.would_adopt" if dry else "setup.adopted", file=a["file"], n=a["colors"]))
+        else:
+            out.line(out.role("  " + t("setup.nothing", file=a["file"]), "dim"))
+    for f in act["skipped"]:
+        out.line(out.role("  " + t("setup.skipped", file=f), "warn"))
+    if act["quickshell"]:
+        out.line("  " + t("setup.quickshell"))
+    out.line(out.role(t("setup.dry") if dry else t("setup.backups", path=ap.cfg("backups")), "dim"))
+    if not dry:
+        out.line(out.role(t("setup.next"), "ok"))
+    return OK
+
+
+def cmd_set(args, out, err):
+    pos = [a for a in args if not a.startswith("--")]
+    if len(pos) != 2:
+        return _fail(err, t("err.usage", cmd="set"), t("set.bad_role_hint"))
+    role, color = pos
+    theme, _, _ = th.read()
+    target = theme["terminal"] if role.startswith("terminal.") else theme["colors"]
+    key = role.split(".", 1)[1] if role.startswith("terminal.") else role
+    if key not in target:
+        return _fail(err, t("set.bad_role", role=role[:40]), t("set.bad_role_hint"))
+    if not th.HEX.match(color):
+        return _fail(err, t("set.bad_color", color=color[:20]), t("set.bad_color_hint"))
+    target[key] = color.upper()
+    return _print_report(ap.change_theme(theme), args, out, err)
+
+
+def cmd_wallpaper(args, out, err):
+    pos = [a for a in args if not a.startswith("--")]
+    theme, _, _ = th.read()
+    if pos[:1] == ["set"] and len(pos) == 2:
+        path = os.path.realpath(os.path.expanduser(pos[1]))
+        if not wpm.is_image(path) or not th._valid_wallpaper(path):
+            return _fail(err, t("wallpaper.bad", path=pos[1][:200]), t("wallpaper.bad_hint"))
+        theme["wallpaper"]["home"] = path
+        return _print_report(ap.change_theme(theme), args, out, err)
+    path = theme["wallpaper"]["home"]                # avvio: mostra lo sfondo del tema
+    if not path:
+        return _fail(err, t("wallpaper.none"), t("wallpaper.none_hint"), code=PROBLEM)
+    ok, backend = wpm.set_wallpaper(path)
+    if "--json" in args:
+        print(json.dumps({"ok": ok, "path": path, "backend": backend}))
+    elif ok:
+        out.line(t("apply.wallpaper", path=path))
+    else:
+        return _fail(err, t("apply.wallpaper_fail", path=path), t("wallpaper.bad_hint"), code=PROBLEM)
+    return OK if ok else PROBLEM
+
+
+def cmd_undo(args, out, err):
+    rep = ap.undo()
+    if rep is None:
+        return _fail(err, t("undo.empty"), t("undo.empty_hint"), code=PROBLEM)
+    return _print_report(rep, args, out, err)
+
+
+def cmd_adopt(args, out, err):
+    pos = [a for a in args if not a.startswith("--")]
+    if len(pos) != 1:
+        return _fail(err, t("err.usage", cmd="adopt"), t("adopt.unsafe_hint"))
+    theme, _, _ = th.read()
+    state = ap.load_state()
+    try:
+        files.backup(pos[0], ap.cfg("backups"))
+        n = ap.adopt_file(pos[0], theme, state)
+    except (files.UnsafeFile, OSError):
+        return _fail(err, t("adopt.unsafe", file=pos[0][:200]), t("adopt.unsafe_hint"))
+    ap.save_state(state)
+    if n:
+        out.line(out.role(t("adopt.done", file=pos[0], n=n), "ok"))
+        return OK
+    return _fail(err, t("adopt.none", file=pos[0]), t("adopt.none_hint"), code=PROBLEM)
+
+
+def cmd_forget(args, out, err):
+    pos = [a for a in args if not a.startswith("--")]
+    if len(pos) != 1:
+        return _fail(err, t("err.usage", cmd="forget"), t("forget.none_hint"))
+    state = ap.load_state()
+    if ap.forget_file(pos[0], state):
+        ap.save_state(state)
+        out.line(out.role(t("forget.done", file=pos[0]), "ok"))
+        return OK
+    return _fail(err, t("forget.none", file=pos[0][:200]), t("forget.none_hint"), code=PROBLEM)
+
+
+COMMANDS = {"status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
+            "set": cmd_set, "wallpaper": cmd_wallpaper, "undo": cmd_undo, "adopt": cmd_adopt, "forget": cmd_forget}
 
 
 def main(argv):

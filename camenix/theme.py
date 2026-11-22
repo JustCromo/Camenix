@@ -19,6 +19,15 @@ VERSION = 1
 MAX_BYTES = 64 * 1024
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 WALLPAPER_KEYS = ("home", "lock")
+# terminale: valori predefiniti di kitty, con lo sfondo nero che usi ora
+TERMINAL_DEFAULTS = {
+    "background": "#000000", "foreground": "#DDDDDD", "cursor": "#CCCCCC",
+    "selection_background": "#FFFACD", "selection_foreground": "#000000",
+    "color0": "#000000", "color1": "#CC0403", "color2": "#19CB00", "color3": "#CECB00",
+    "color4": "#0D73CC", "color5": "#CB1ED1", "color6": "#0DCDCD", "color7": "#DDDDDD",
+    "color8": "#767676", "color9": "#F2201F", "color10": "#23FD00", "color11": "#FFFD00",
+    "color12": "#1A8FFF", "color13": "#FD28FF", "color14": "#14FFFF", "color15": "#FFFFFF",
+}
 WALLPAPER_EXT = (".png", ".jpg", ".jpeg", ".webp")
 
 
@@ -42,14 +51,17 @@ def defaults():
 
 def default_theme(name="Gudetama"):
     return {"format": FORMAT, "version": VERSION, "name": name, "colors": defaults(),
+            "terminal": dict(TERMINAL_DEFAULTS),
             "wallpaper": {"home": None, "lock": None, "lock_same": True, "lock_blur": True}}
 
 
 def _valid_wallpaper(value):
+    """Percorso assoluto di un'immagine, senza caratteri di controllo: finisce dentro altre config
+    (es. hyprlock), quindi un "a capo" nel nome potrebbe iniettare righe nuove."""
     if value is None:
         return True
     return (isinstance(value, str) and 0 < len(value) < 4096 and os.path.isabs(value)
-            and "\x00" not in value and "\n" not in value and value.lower().endswith(WALLPAPER_EXT))
+            and not re.search(r"[\x00-\x1f\x7f]", value) and value.lower().endswith(WALLPAPER_EXT))
 
 
 def normalize(data):
@@ -73,9 +85,17 @@ def normalize(data):
             known[key] = value.upper()
         else:
             problems.append(("problem.bad_color", {"role": key}))
+    term = data.get("terminal") if isinstance(data.get("terminal"), dict) else {}
+    for key, value in term.items():
+        if key not in theme["terminal"]:
+            problems.append(("problem.unknown_role", {"role": "terminal." + str(key)[:30]}))
+        elif isinstance(value, str) and HEX.match(value):
+            theme["terminal"][key] = value.upper()
+        else:
+            problems.append(("problem.bad_color", {"role": "terminal." + key}))
     wp = data.get("wallpaper") if isinstance(data.get("wallpaper"), dict) else {}
     for key in WALLPAPER_KEYS:
-        if key in wp:
+        if key in wp and wp[key] is not None:
             if _valid_wallpaper(wp[key]):
                 theme["wallpaper"][key] = wp[key]
             else:
