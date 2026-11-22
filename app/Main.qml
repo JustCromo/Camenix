@@ -217,13 +217,10 @@ Rectangle {
                     rowSpacing: 8
                     verticalItemAlignment: Grid.AlignVCenter
                     Label { text: "Sfondo" }
-                    Flow {
-                        width: controls.inner
-                        spacing: 12
-                        Row {
-                        spacing: 12
+                    Row {
+                        spacing: 14
                         Rectangle {
-                            width: 112; height: 63; radius: 10; clip: true
+                            width: 150; height: 86; radius: 12; clip: true
                             color: pal.panel; border.width: 1; border.color: pal.line
                             Canvas {                    // miniatura: da qui si leggono anche i colori per le palette
                                 id: thumb
@@ -241,29 +238,28 @@ Rectangle {
                             }
                             Text { anchors.centerIn: parent; visible: thumb.src === ""; text: "nessuno"; color: pal.muted; font.family: pal.font; font.pixelSize: 10 }
                         }
-                        Btn { anchors.verticalCenter: parent.verticalCenter; ui: pal; text: "Cambia…"; onClicked: main.eng.chooseWallpaper("home") }
-                        }
-                        Item {
-                        width: sameLock.width; height: 63
-                        Rectangle {                     // blocco: stesso sfondo sì/no
-                            id: sameLock
+                        Column {                        // a destra della miniatura: cambia sfondo, e sotto il blocco
                             anchors.verticalCenter: parent.verticalCenter
-                            readonly property bool on: main.eng.draft ? main.eng.draft.wallpaper.lock_same : true
-                            width: sameRow.implicitWidth + 24; height: 38; radius: 19
-                            color: sameArea.containsMouse ? pal.hover : "transparent"
-                            border.width: 1.5; border.color: pal.line
-                            Row {
-                                id: sameRow
-                                anchors.centerIn: parent
-                                spacing: 8
-                                Rectangle { width: 18; height: 18; radius: 5; anchors.verticalCenter: parent.verticalCenter
-                                            color: sameLock.on ? pal.accent2 : "transparent"; border.width: 2; border.color: sameLock.on ? pal.accent2 : pal.muted
-                                            Text { anchors.centerIn: parent; text: "✓"; visible: sameLock.on; color: "white"; font.pixelSize: 11; font.bold: true } }
-                                Text { anchors.verticalCenter: parent.verticalCenter; text: "Stesso sfondo nel blocco schermo"; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
+                            spacing: 10
+                            Btn { ui: pal; width: sameLock.width; text: "Cambia sfondo…"; onClicked: main.eng.chooseWallpaper("home") }
+                            Rectangle {                 // blocco: stesso sfondo sì/no
+                                id: sameLock
+                                readonly property bool on: main.eng.draft ? main.eng.draft.wallpaper.lock_same : true
+                                width: sameRow.implicitWidth + 24; height: 38; radius: 19
+                                color: sameArea.containsMouse ? pal.hover : "transparent"
+                                border.width: 1.5; border.color: pal.line
+                                Row {
+                                    id: sameRow
+                                    anchors.centerIn: parent
+                                    spacing: 8
+                                    Rectangle { width: 18; height: 18; radius: 5; anchors.verticalCenter: parent.verticalCenter
+                                                color: sameLock.on ? pal.accent2 : "transparent"; border.width: 2; border.color: sameLock.on ? pal.accent2 : pal.muted
+                                                Text { anchors.centerIn: parent; text: "✓"; visible: sameLock.on; color: "white"; font.pixelSize: 11; font.bold: true } }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Stesso sfondo nel blocco schermo"; color: pal.fg; font.family: pal.font; font.pixelSize: 12 }
+                                }
+                                MouseArea { id: sameArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onClicked: { main.showLock = true; if (sameLock.on) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) } }
                             }
-                            MouseArea { id: sameArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                        onClicked: { main.showLock = true; if (sameLock.on) main.eng.chooseWallpaper("lock"); else main.eng.setLockSame(true) } }
-                        }
                         }
                     }
                 }
