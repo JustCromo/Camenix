@@ -1,0 +1,40 @@
+{
+  "format": "camenix-theme",
+  "version": 1,
+  "name": "Gudetama",
+  "colors": {
+    "text": "#1E1528",
+    "glass": "#FBF8FF",
+    "accent": "#FFD25A",
+    "accent2": "#E8892A",
+    "secondary": "#B9A6F5",
+    "success": "#2F7A4B",
+    "warning": "#E8892A",
+    "error": "#C2384F",
+    "sheen": "#FFFFFF",
+    "accentHover": "#FFE08A",
+    "accentSoft": "#FFE7A6",
+    "accentPale": "#FFF1CC",
+    "accentWarm": "#F5C451",
+    "accentGlow": "#F5A623",
+    "accentDeep": "#B85A0C",
+    "accentDeeper": "#A8530A",
+    "secondaryLight": "#D4C8FA",
+    "secondaryPale": "#E9E2FB",
+    "secondaryPaler": "#F3EFFD",
+    "secondaryMist": "#DCD2F7",
+    "secondaryDeep": "#8E78E0",
+    "secondaryDarker": "#5E4E92",
+    "textAlt": "#2B2236",
+    "warningStrong": "#D4661A",
+    "caution": "#C99A1E",
+    "errorBright": "#D6455E",
+    "errorPale": "#FFD9DE"
+  },
+  "wallpaper": {
+    "home": null,
+    "lock": null,
+    "lock_same": true,
+    "lock_blur": true
+  }
+}

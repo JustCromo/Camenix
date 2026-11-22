@@ -1,0 +1,40 @@
+{
+  "role.text": "Testo",
+  "role.glass": "Vetro isole",
+  "role.accent": "Accento",
+  "role.accent2": "Accento 2",
+  "role.secondary": "Secondario",
+  "role.success": "Successo",
+  "role.warning": "Avviso",
+  "role.error": "Errore",
+  "group.base": "Colori principali",
+  "group.derived": "Sfumature (calcolate)",
+
+  "status.title": "Tema attivo: {name}",
+  "status.file": "File: {path}",
+  "status.default": "Nessun tema salvato: è in uso la palette predefinita.",
+  "status.hint_init": "Per crearlo: camenix init",
+  "status.problems": "{n} problemi nel file del tema:",
+
+  "init.done": "Tema creato in {path}.",
+  "init.exists": "Esiste già un tema in {path}.",
+  "init.exists_hint": "Per sovrascriverlo: camenix init --force",
+
+  "check.ok": "Il tema è valido.",
+  "check.bad": "Il tema ha {n} problemi.",
+
+  "err.usage": "Comando non riconosciuto: {cmd}.",
+  "err.usage_hint": "Comandi: status, init, check (aggiungi --json per l'output in JSON).",
+  "err.unsafe_path": "Il percorso del tema non è un file normale: {path}.",
+  "err.unsafe_hint": "Controlla che non sia un collegamento o una cartella, poi riprova.",
+  "err.write": "Non riesco a scrivere il tema: {reason}.",
+  "err.write_hint": "Controlla i permessi di ~/.config/camenix.",
+
+  "problem.not_json": "il file non è JSON valido",
+  "problem.too_big": "il file è troppo grande",
+  "problem.not_object": "il contenuto non è un oggetto JSON",
+  "problem.bad_format": "formato non riconosciuto",
+  "problem.bad_color": "colore non valido per \"{role}\" (uso quello predefinito)",
+  "problem.unknown_role": "ruolo sconosciuto ignorato: \"{role}\"",
+  "problem.bad_wallpaper": "percorso dello sfondo non valido per \"{key}\""
+}

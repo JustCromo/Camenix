@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "roles": [
+    {"key": "text",            "group": "base",    "default": "#1E1528"},
+    {"key": "glass",           "group": "base",    "default": "#FBF8FF"},
+    {"key": "accent",          "group": "base",    "default": "#FFD25A"},
+    {"key": "accent2",         "group": "base",    "default": "#E8892A"},
+    {"key": "secondary",       "group": "base",    "default": "#B9A6F5"},
+    {"key": "success",         "group": "base",    "default": "#2F7A4B"},
+    {"key": "warning",         "group": "base",    "default": "#E8892A"},
+    {"key": "error",           "group": "base",    "default": "#C2384F"},
+    {"key": "sheen",           "group": "derived", "default": "#FFFFFF"},
+    {"key": "accentHover",     "group": "derived", "default": "#FFE08A"},
+    {"key": "accentSoft",      "group": "derived", "default": "#FFE7A6"},
+    {"key": "accentPale",      "group": "derived", "default": "#FFF1CC"},
+    {"key": "accentWarm",      "group": "derived", "default": "#F5C451"},
+    {"key": "accentGlow",      "group": "derived", "default": "#F5A623"},
+    {"key": "accentDeep",      "group": "derived", "default": "#B85A0C"},
+    {"key": "accentDeeper",    "group": "derived", "default": "#A8530A"},
+    {"key": "secondaryLight",  "group": "derived", "default": "#D4C8FA"},
+    {"key": "secondaryPale",   "group": "derived", "default": "#E9E2FB"},
+    {"key": "secondaryPaler",  "group": "derived", "default": "#F3EFFD"},
+    {"key": "secondaryMist",   "group": "derived", "default": "#DCD2F7"},
+    {"key": "secondaryDeep",   "group": "derived", "default": "#8E78E0"},
+    {"key": "secondaryDarker", "group": "derived", "default": "#5E4E92"},
+    {"key": "textAlt",         "group": "derived", "default": "#2B2236"},
+    {"key": "warningStrong",   "group": "derived", "default": "#D4661A"},
+    {"key": "caution",         "group": "derived", "default": "#C99A1E"},
+    {"key": "errorBright",     "group": "derived", "default": "#D6455E"},
+    {"key": "errorPale",       "group": "derived", "default": "#FFD9DE"}
+  ]
+}
