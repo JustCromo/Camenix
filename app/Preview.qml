@@ -1,6 +1,5 @@
 // anteprima in miniatura: desktop (isole, kitty, rofi) o schermata di blocco, con i colori della bozza
 import QtQuick
-import QtQuick.Effects
 
 Rectangle {
     id: pv
@@ -46,29 +45,72 @@ Rectangle {
         asynchronous: true
         sourceSize.width: 1400
     }
-    // blocco: sfondo sfocato come hyprlock. Il grosso della sfocatura si ottiene caricando l'immagine
-    // piccolissima e ingrandendola (funziona ovunque, anche senza effetti grafici); MultiEffect poi
-    // ammorbidisce i bordi dei pixel. Raggio di hyprlock ≈ blur_size × 2^blur_passes / 2.
+    // blocco: sfondo sfocato come hyprlock. Raggio di hyprlock ≈ blur_size × 2^blur_passes / 2.
     readonly property real lockRadius: bg ? Math.min(400, bg.blur_size * Math.pow(2, Math.min(bg.blur_passes, 6)) / 2) : 20
+    // Sfocatura fatta a mano, senza effetti grafici (che su alcuni sistemi non si vedono): l'immagine viene
+    // disegnata piccola (160 px), sfocata con tre passaggi di media sui vicini (≈ sfocatura gaussiana) e poi
+    // ingrandita con interpolazione morbida. Funziona con qualsiasi scheda video e anche nei test automatici.
     Image {
-        id: lockImg
-        anchors.fill: parent
-        visible: pv.lock && !lockSoft.visible
+        id: lockSrc
+        visible: false
         source: pv.lock ? pv.wall : ""
-        fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        smooth: true
-        sourceSize.width: pv.lockRadius > 0 ? Math.max(24, Math.round(pv.screenW / (pv.lockRadius * 1.5))) : 1400
+        sourceSize.width: 640
+        onStatusChanged: if (status === Image.Ready) lockCanvas.requestPaint()
     }
-    MultiEffect {
-        id: lockSoft
-        anchors.fill: parent
-        source: lockImg
-        visible: pv.lock && pv.lockRadius > 0
-        blurEnabled: true
-        blur: 0.6
-        blurMax: 16
-        saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy / 2)) : 0
+    Canvas {                                  // la versione piccola e sfocata, ingrandita a tutta l'anteprima
+        id: lockCanvas
+        visible: pv.lock
+        readonly property int sw: 160
+        width: sw
+        height: Math.max(1, Math.round(sw * pv.height / Math.max(1, pv.width)))
+        transformOrigin: Item.TopLeft
+        scale: pv.width / sw
+        smooth: true                          // ingrandimento con interpolazione morbida
+        // raggio in pixel della versione piccola (tarato sulla schermata vera di hyprlock)
+        readonly property int r: Math.max(1, Math.min(12, Math.round(pv.lockRadius * sw / pv.screenW)))
+        readonly property string key: [pv.lock, pv.wall, r, height].join()
+        onKeyChanged: requestPaint()
+        onPaint: {
+            const ctx = getContext("2d")
+            ctx.reset()
+            if (!pv.lock || lockSrc.status !== Image.Ready) return
+            const iw = lockSrc.implicitWidth, ih = lockSrc.implicitHeight
+            if (iw < 1 || ih < 1) return
+            // come PreserveAspectCrop (la forma a 9 argomenti di drawImage non è affidabile con un Image)
+            const sc = Math.max(width / iw, height / ih), dw = iw * sc, dh = ih * sc
+            ctx.drawImage(lockSrc, (width - dw) / 2, (height - dh) / 2, dw, dh)
+            const src = ctx.getImageData(0, 0, width, height)
+            const out = ctx.createImageData(width, height)
+            pv.boxBlur(src.data, out.data, width, height, r)
+            // forma completa a 7 argomenti: quella corta, in Qt, a volte non scrive niente
+            ctx.putImageData(out, 0, 0, 0, 0, width, height)
+        }
+    }
+    // media dei vicini in orizzontale e in verticale, tre volte (si avvicina a una sfocatura gaussiana)
+    function boxBlur(src, dst, w, h, r) {
+        const n = w * h * 4
+        let a = new Float32Array(n), t = new Float32Array(n)
+        for (let i = 0; i < n; i++) a[i] = src[i]
+        for (let pass = 0; pass < 3; pass++) {
+            for (let y = 0; y < h; y++) for (let c = 0; c < 4; c++) {
+                let acc = 0
+                for (let x = -r; x <= r; x++) acc += a[(y * w + Math.min(w - 1, Math.max(0, x))) * 4 + c]
+                for (let x = 0; x < w; x++) {
+                    t[(y * w + x) * 4 + c] = acc / (2 * r + 1)
+                    acc += a[(y * w + Math.min(w - 1, x + r + 1)) * 4 + c] - a[(y * w + Math.max(0, x - r)) * 4 + c]
+                }
+            }
+            for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) {
+                let acc = 0
+                for (let y = -r; y <= r; y++) acc += t[(Math.min(h - 1, Math.max(0, y)) * w + x) * 4 + c]
+                for (let y = 0; y < h; y++) {
+                    a[(y * w + x) * 4 + c] = acc / (2 * r + 1)
+                    acc += t[(Math.min(h - 1, y + r + 1) * w + x) * 4 + c] - t[(Math.max(0, y - r) * w + x) * 4 + c]
+                }
+            }
+        }
+        for (let i = 0; i < n; i++) dst[i] = Math.round(a[i])
     }
     Rectangle {                              // luminosità di hyprlock (brightness < 1 = più scuro)
         anchors.fill: parent
