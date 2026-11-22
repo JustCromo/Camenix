@@ -40,22 +40,41 @@ Rectangle {
     Image {
         id: img
         anchors.fill: parent
+        visible: !pv.lock
         source: pv.wall
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         sourceSize.width: 1400
     }
-    MultiEffect {                          // blocco: stesso sfondo sfocato
+    // blocco: sfondo sfocato come hyprlock. Il grosso della sfocatura si ottiene caricando l'immagine
+    // piccolissima e ingrandendola (funziona ovunque, anche senza effetti grafici); MultiEffect poi
+    // ammorbidisce i bordi dei pixel. Raggio di hyprlock ≈ blur_size × 2^blur_passes / 2.
+    readonly property real lockRadius: bg ? Math.min(400, bg.blur_size * Math.pow(2, Math.min(bg.blur_passes, 6)) / 2) : 20
+    Image {
+        id: lockImg
         anchors.fill: parent
-        source: img
-        visible: pv.lock
+        visible: pv.lock && !lockSoft.visible
+        source: pv.lock ? pv.wall : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        smooth: true
+        sourceSize.width: pv.lockRadius > 0 ? Math.max(24, Math.round(pv.screenW / pv.lockRadius * 2)) : 1400
+    }
+    MultiEffect {
+        id: lockSoft
+        anchors.fill: parent
+        source: lockImg
+        visible: pv.lock && pv.lockRadius > 0
         blurEnabled: true
-        // come hyprlock: più passaggi e più grandezza = più sfocato (circa 0,7 × passaggi × grandezza pixel,
-        // riportati alla scala dell'anteprima); luminosità e vivacità dal file
-        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size * 0.7 * pv.k / 32) : 0.35
-        blurMax: 32
-        brightness: pv.bg ? Math.max(-1, Math.min(1, pv.bg.brightness - 1)) : -0.03
+        blur: 0.5
+        blurMax: 16
         saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy / 2)) : 0
+    }
+    Rectangle {                              // luminosità di hyprlock (brightness < 1 = più scuro)
+        anchors.fill: parent
+        visible: pv.lock && !!pv.bg
+        color: pv.bg && pv.bg.brightness < 1 ? "black" : "white"
+        opacity: pv.bg ? Math.min(0.8, Math.abs(1 - pv.bg.brightness)) : 0
     }
     Text {
         visible: pv.wall === ""
