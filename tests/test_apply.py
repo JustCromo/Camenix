@@ -112,6 +112,27 @@ class TestApply(FakeHome):
         self.assertTrue(rep.as_dict()["ok"])
         self.assertEqual(self.snapshot(), before)
 
+    def test_quick_changes_undo_in_order(self):
+        """Due cambi nello stesso secondo, poi due annulla: si torna esattamente all'inizio."""
+        before = self.snapshot()
+        theme_before = th.read()[0]["colors"]
+        self.change(accent="#3FE0D0")
+        self.change(accent2="#2F7FB8")
+        ap.undo()
+        self.assertEqual(th.read()[0]["colors"]["accent"], "#3FE0D0")
+        self.assertEqual(th.read()[0]["colors"]["accent2"], theme_before["accent2"])
+        ap.undo()
+        self.assertEqual(th.read()[0]["colors"], theme_before)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_history_order_many_fast_changes(self):
+        for i in range(10):
+            self.change(accent="#%06X" % (i + 1))
+        for i in reversed(range(10)):
+            ap.undo()
+            expected = "#%06X" % i if i else th.defaults()["accent"]
+            self.assertEqual(th.read()[0]["colors"]["accent"], expected)
+
     def test_undo_empty(self):
         for p in pathlib.Path(ap.cfg("history")).glob("*.json") if os.path.isdir(ap.cfg("history")) else []:
             p.unlink()

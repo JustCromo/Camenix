@@ -200,7 +200,11 @@ def save_history():
     if not os.path.isfile(src) or os.path.islink(src):
         return None
     os.makedirs(cfg("history"), mode=0o700, exist_ok=True)
-    dest = cfg("history", time.strftime("%Y%m%d-%H%M%S-") + f"{time.time_ns() % 10**6:06d}.json")
+    # nome = nanosecondi a 20 cifre: l'ordine alfabetico è sempre l'ordine nel tempo, anche nello stesso secondo
+    stamp = time.time_ns()
+    while os.path.exists(cfg("history", f"{stamp:020d}.json")):
+        stamp += 1
+    dest = cfg("history", f"{stamp:020d}.json")
     files.atomic_write(dest, files.read_text(src, limit=th.MAX_BYTES + 1), default_mode=0o600)
     old = sorted(glob.glob(cfg("history", "*.json")))
     for p in old[:-HISTORY_KEEP]:
