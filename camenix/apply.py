@@ -10,7 +10,7 @@ import re
 import time
 from importlib import resources
 
-from camenix import derive as dv, files, render, system, theme as th, wallpaper
+from camenix import derive as dv, detect, files, render, system, theme as th, wallpaper
 import shutil
 
 KITTY_INCLUDE = "include ~/.config/camenix/generated/kitty.conf"
@@ -52,12 +52,37 @@ def reload_kind(path):
     return "none"
 
 
+def kind(path):
+    """Che programma usa il file (per dire all'utente cosa cambia, in parole sue)."""
+    p = path.replace(os.sep, "/")
+    if p.endswith("/hyprlock.conf"):
+        return "hyprlock"
+    if reload_kind(path) == "hyprland":
+        return "hyprland"
+    if p.endswith("/mako/config"):
+        return "mako"
+    if p.endswith(".rasi"):
+        return "rofi"
+    if p.endswith("/kitty.conf"):
+        return "kitty"
+    if p.endswith("/Theme.qml"):
+        return "quickshell"
+    return "other"
+
+
+PREFER = {
+    "hyprland": ("borderFrom", "borderTo", "borderIdle"),
+    "mako": ("glass", "text", "accent", "accent2", "error"),
+    "hyprlock": ("accent", "glass", "text", "textAlt"),
+}
+
+
 # ── modelli ──────────────────────────────────────────────
 def adopt_file(path, theme, state):
     """Crea (o ricrea) il modello di un file. -> numero di colori collegati al tema."""
     real = files.resolve(path)
     text = files.read_text(real)
-    template, count = render.adopt(text, theme)
+    template, count = render.adopt(text, theme, PREFER.get(kind(real), ()))
     if count == 0:
         return 0
     os.makedirs(cfg("templates"), mode=0o700, exist_ok=True)
@@ -285,10 +310,24 @@ def import_wallpaper(path):
     return dest if th._valid_wallpaper(dest) else None
 
 
+def original_path():
+    return cfg("original.json")
+
+
+def original():
+    """Colori trovati sul desktop al primo avvio (se Camenix è partito così), altrimenti None."""
+    try:
+        theme, _ = th.normalize(json.loads(files.read_text(original_path(), limit=64 * 1024)))
+        return theme
+    except (files.UnsafeFile, OSError, ValueError):
+        return None
+
+
 def reset_colors():
-    """Colori originali, sfondo invariato."""
+    """Colori iniziali (quelli del desktop al primo avvio, o quelli predefiniti), sfondo invariato."""
     current, _, _ = th.read()
-    fresh = th.default_theme(current["name"])
+    fresh = original() or th.default_theme(current["name"])
+    fresh["name"] = current["name"]
     fresh["wallpaper"] = current["wallpaper"]
     return change_theme(fresh)
 
@@ -331,6 +370,31 @@ def candidates():
     return [p for p in c if os.path.isfile(p)]
 
 
+def will_manage():
+    """File che Camenix userebbe al primo avvio, con il programma a cui appartengono."""
+    out = [{"file": p, "kind": kind(p)} for p in candidates()]
+    kitty = os.path.expanduser("~/.config/kitty/kitty.conf")
+    if os.path.isfile(kitty) or system.has("kitty"):
+        out.append({"file": kitty, "kind": "kitty"})
+    if quickshell_target():
+        out.append({"file": quickshell_target(), "kind": "quickshell"})
+    return out
+
+
+def first_run():
+    """Primo avvio: il tema parte dai colori trovati sul desktop, che restano anche come "colori iniziali";
+    poi Camenix collega i file (con copia di sicurezza). -> dict, oppure None se Camenix è già configurato."""
+    if os.path.lexists(th.theme_path()):
+        return None
+    theme, found = detect.detect()
+    th.write(theme)
+    os.makedirs(th.config_dir(), mode=0o700, exist_ok=True)
+    files.atomic_write(original_path(), json.dumps(theme, indent=2, ensure_ascii=False) + "\n", default_mode=0o600)
+    actions = setup()
+    rep = apply(theme)                                # crea i colori di kitty e avvisa i programmi
+    return {"found": found, "setup": actions, "report": rep.as_dict()}
+
+
 def setup(dry_run=False):
     """-> dict con le azioni fatte (o da fare con dry_run)."""
     actions = {"theme": None, "wallpaper": None, "kitty": None, "adopted": [], "skipped": [], "quickshell": None}
@@ -349,6 +413,8 @@ def setup(dry_run=False):
                 actions["kitty"] = kitty
         except files.UnsafeFile:
             actions["skipped"].append(kitty)
+    elif not os.path.lexists(kitty) and system.has("kitty"):
+        actions["kitty"] = kitty                       # kitty installato senza config: la crea con la sola riga
     state = load_state()
     managed = {f["target"] for f in state["files"]}
     todo = [p for p in candidates() if os.path.realpath(p) not in managed]
@@ -363,9 +429,12 @@ def setup(dry_run=False):
     if actions["wallpaper"]:
         state["wallpaper"] = actions["wallpaper"]      # è già quello sullo schermo: niente da riavviare
     if actions["kitty"]:
-        files.backup(kitty, cfg("backups"))
-        text = files.read_text(kitty)
-        files.atomic_write(kitty, text.rstrip("\n") + f"\n\n{KITTY_MARK}\n{KITTY_INCLUDE}\n")
+        if os.path.exists(kitty):
+            files.backup(kitty, cfg("backups"))
+            text = files.read_text(kitty).rstrip("\n") + "\n\n"
+        else:
+            text = ""
+        files.atomic_write(kitty, text + f"{KITTY_MARK}\n{KITTY_INCLUDE}\n")
     for p in todo:
         try:
             files.backup(p, cfg("backups"))

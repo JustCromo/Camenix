@@ -20,7 +20,7 @@ Rectangle {
         id: label
         anchors.centerIn: parent
         text: b.text
-        color: b.primary ? ui.onAccent : ui.fg
+        color: b.primary ? ui.accentInk : ui.fg
         font.family: ui.font
         font.pixelSize: 13
         font.weight: Font.Bold

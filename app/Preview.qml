@@ -9,7 +9,7 @@ Rectangle {
     property bool lock: false
     property var highlight: []            // zone da illuminare (passando sopra un colore)
     function hl(z) { return highlight.indexOf(z) >= 0 }
-    property string label: lock ? "Blocco" : "Home"
+    property string label: lock ? "Blocco schermo" : "Scrivania"
     readonly property var c: theme ? theme.colors : ({})
     readonly property var term: theme ? theme.terminal : ({})
     readonly property string wall: {
@@ -18,11 +18,16 @@ Rectangle {
         const p = (lock && !w.lock_same && w.lock) ? w.lock : w.home
         return p ? "file://" + p : ""
     }
+    // testo leggibile sopra un colore: quasi nero o bianco
+    function ink(hex) {
+        const l = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16) / 255).map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+        return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2] > 0.18 ? "#1E1528" : "#FFFFFF"
+    }
     function a(hex, alpha) { return Qt.rgba(parseInt(hex.substr(1, 2), 16) / 255, parseInt(hex.substr(3, 2), 16) / 255, parseInt(hex.substr(5, 2), 16) / 255, alpha) }
 
     radius: 18
     clip: true
-    color: c.secondaryLight || "#D4C8FA"
+    color: ui.panel
     border.width: 1.5
     border.color: ui.line
 
@@ -45,11 +50,11 @@ Rectangle {
     }
     Text {
         visible: pv.wall === ""
-        anchors.centerIn: parent
-        text: "Nessuno sfondo: caricane uno"
-        color: pv.c.text || "#1E1528"
+        anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
+        text: "nessuno sfondo: scegline uno in ① Sfondo"
+        color: ui.muted
         font.family: ui.font
-        font.pixelSize: 12
+        font.pixelSize: 11
     }
 
     // ── home: isole, kitty, rofi ───────────────────────
@@ -98,19 +103,19 @@ Rectangle {
             y: parent.height * 0.26
             width: parent.width * 0.34; height: parent.height * 0.5
             radius: 10
-            color: pv.c.secondaryLight || "#D4C8FA"
+            color: pv.a(pv.c.glass || "#FBF8FF", 0.95)
             border.width: 1.5
-            border.color: pv.c.textAlt || "#2B2236"
+            border.color: pv.c.secondary || "#B9A6F5"
             Glow { on: pv.hl("menu"); r: 10 }
             Column {
                 x: 8; y: 8; width: parent.width - 16; spacing: 5
-                Rectangle { width: parent.width; height: 16; radius: 8; color: pv.a(pv.c.paper || "#FFF4DA", 0.95); border.width: 1; border.color: pv.a(pv.c.accentGlow || "#F5A623", 0.35)
-                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: "Cerca…"; color: pv.c.textMuted || "#8A7FA8"; font.family: ui.font; font.pixelSize: 8 } }
+                Rectangle { width: parent.width; height: 16; radius: 8; color: pv.a(pv.c.text || "#1E1528", 0.07); border.width: 1; border.color: pv.a(pv.c.secondary || "#B9A6F5", 0.6)
+                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: "Cerca…"; color: pv.a(pv.c.text || "#1E1528", 0.55); font.family: ui.font; font.pixelSize: 8 } }
                 Rectangle { width: parent.width; height: 18; radius: 6; color: pv.c.accent || "#FFD25A"
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: pv.c.accent2 || "#E8892A" }
-                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: "Camenix"; color: pv.c.textAlt || "#2B2236"; font.family: ui.font; font.pixelSize: 8; font.bold: true } }
+                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: "Camenix"; color: pv.ink(pv.c.accent || "#FFD25A"); font.family: ui.font; font.pixelSize: 8; font.bold: true } }
                 Repeater { model: ["kitty", "Brave"]
-                    Text { x: 8; text: modelData; color: pv.c.textAlt || "#2B2236"; font.family: ui.font; font.pixelSize: 8 } }
+                    Text { x: 8; text: modelData; color: pv.c.text || "#1E1528"; font.family: ui.font; font.pixelSize: 8 } }
             }
         }
     }

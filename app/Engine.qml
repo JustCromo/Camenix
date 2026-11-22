@@ -21,6 +21,9 @@ QtObject {
     property string error: ""           // messaggio da mostrare (una frase)
     property var conflicts: []          // file modificati a mano che bloccano "Applica"
     property bool awaitingKeep: false   // paracadute attivo
+    property bool firstRun: false       // nessun tema ancora: si parte dai colori trovati sul desktop
+    property var detected: null         // { theme, found, will_manage } letti al primo avvio
+    property var managedKinds: []       // programmi collegati (hyprland, kitty, mako…)
     signal applied()
     signal reverted()
 
@@ -42,10 +45,44 @@ QtObject {
             onStreamFinished: {
                 try {
                     const d = JSON.parse(text)
+                    eng.managedKinds = d.managed_kinds || []
+                    eng.firstRun = !!d.first_run
+                    if (eng.firstRun) { eng.detectProc.running = true; return }
                     const wasClean = !eng.dirty
                     eng.current = d.theme
                     if (!eng.draft || wasClean) eng.draft = eng.clone(d.theme)
                 } catch (e) { eng.error = "Non riesco a leggere il tema." }
+            }
+        }
+    }
+
+    // ── primo avvio ────────────────────────────────────
+    // si leggono i colori del desktop (senza scrivere niente); "Inizia" li salva e collega i file
+    property Process detectProc: Process {
+        command: [eng.engine, "detect", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const d = JSON.parse(text)
+                    eng.detected = d
+                    eng.current = d.theme
+                    eng.draft = eng.clone(d.theme)
+                } catch (e) { eng.error = "Non riesco a leggere i colori del desktop." }
+            }
+        }
+    }
+    function start() { if (!startProc.running) { busy = true; error = ""; startProc.running = true } }
+    property Process startProc: Process {
+        command: [eng.engine, "first-run", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                eng.busy = false
+                let r = null
+                try { r = JSON.parse(text) } catch (e) {}
+                if (!r || (!r.ok && r.why !== "already")) { eng.error = "Non sono riuscito a preparare Camenix: le copie dei file sono in ~/.config/camenix/backups."; return }
+                eng.firstRun = false
+                eng.draft = null
+                eng.statusProc.running = true
             }
         }
     }

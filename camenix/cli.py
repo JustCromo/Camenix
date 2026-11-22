@@ -4,7 +4,7 @@ import locale
 import os
 import sys
 
-from camenix import __version__, apply as ap, files, theme as th, wallpaper as wpm
+from camenix import __version__, apply as ap, detect, files, theme as th, wallpaper as wpm
 from camenix.i18n import t
 
 USAGE = 2
@@ -51,8 +51,11 @@ def cmd_status(args, out, err):
     except th.UnsafePath as e:
         return _fail(err, t("err.unsafe_path", path=str(e)), t("err.unsafe_hint"))
     if "--json" in args:
+        managed = [f["target"] for f in ap.load_state()["files"]]
+        kitty_on = any(k["kind"] == "kitty" for k in ap.will_manage()) and exists
         print(json.dumps({"version": __version__, "path": th.theme_path(), "exists": exists, "theme": theme,
-                          "managed": [f["target"] for f in ap.load_state()["files"]],
+                          "first_run": not exists, "managed": managed,
+                          "managed_kinds": sorted({ap.kind(f) for f in managed} | ({"kitty"} if kitty_on else set())),
                           "problems": _problems_text(problems)}, ensure_ascii=False))
         return PROBLEM if problems else OK
     out.line(out.role(t("status.title", name=theme["name"]), "title"))
@@ -308,7 +311,27 @@ def cmd_install(args, out, err):
     return OK
 
 
-COMMANDS = {"derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
+def cmd_detect(args, out, err):
+    """Colori che il desktop ha adesso (non scrive niente)."""
+    theme, found = detect.detect()
+    print(json.dumps({"theme": theme, "found": found, "will_manage": ap.will_manage()}, ensure_ascii=False))
+    return OK
+
+
+def cmd_first_run(args, out, err):
+    try:
+        res = ap.first_run()
+    except (files.UnsafeFile, OSError) as e:
+        print(json.dumps({"ok": False, "why": "unsafe", "file": str(e)}))
+        return PROBLEM
+    if res is None:
+        print(json.dumps({"ok": False, "why": "already"}))
+        return PROBLEM
+    print(json.dumps({"ok": True, "found": res["found"], "report": res["report"]}, ensure_ascii=False))
+    return OK
+
+
+COMMANDS = {"detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
             "set": cmd_set, "wallpaper": cmd_wallpaper, "undo": cmd_undo, "adopt": cmd_adopt, "forget": cmd_forget}

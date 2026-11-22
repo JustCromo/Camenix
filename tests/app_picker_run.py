@@ -1,5 +1,6 @@
 """Usa l'app Camenix (QML) come farebbe una persona: mouse e tastiera veri (simulati), su una home finta.
-Uso: python3 tests/app_picker_run.py <cartella-foto>   (HOME deve già puntare alla home finta)"""
+Uso: python3 tests/app_picker_run.py <cartella-foto> [--first]   (HOME deve già puntare alla home finta)
+Con --first la home non ha ancora un tema: si parte dalla schermata di benvenuto."""
 import json
 import math
 import os
@@ -15,6 +16,7 @@ from PySide6.QtTest import QTest                                         # noqa:
 from tests import qs_mock                                                # noqa: E402
 
 out = sys.argv[1]
+FIRST = "--first" in sys.argv
 os.makedirs(out, exist_ok=True)
 app = QGuiApplication(sys.argv)
 qs_mock.register(os.path.join(ROOT, "app"))
@@ -35,7 +37,10 @@ S = R["steps"]
 
 
 def obj(name):
-    return root.findChild(QObject, name)
+    found = root.findChild(QObject, name)
+    if found is None:                            # creato da un Repeater: si cerca nell'albero visivo
+        found = next((i for i in tree(root) if i.objectName() == name), None)
+    return found
 
 
 def val(v):
@@ -105,8 +110,34 @@ def step(delay):
     return deco
 
 
+if FIRST:
+    @step(1500)
+    def welcome():
+        e = obj("eng")
+        S["first_run"] = e.property("firstRun")
+        S["welcome_visible"] = items("Welcome")[0].isVisible()
+        S["detected_border"] = val(e.property("detected"))["theme"]["colors"]["borderFrom"]
+        S["theme_before_start"] = os.path.exists(os.path.expanduser("~/.config/camenix/theme.json"))
+        shot("0-welcome")
+        click(obj("startBtn"))
+
+    @step(2500)
+    def started():
+        S["first_run_after"] = obj("eng").property("firstRun")
+        S["theme_border"] = theme_file()["colors"]["borderFrom"]
+        S["draft_border_start"] = draft()["colors"]["borderFrom"]
+
+
 @step(1500)
+def go_colors():
+    S["start_step"] = obj("main").property("step")
+    shot("0-step1")
+    click(obj("step2"))
+
+
+@step(300)
 def hover():
+    S["step"] = obj("main").property("step")
     QTest.mouseMove(view, at(swatch("Evidenziato")))
 
 
@@ -145,8 +176,8 @@ def slider():
 @step(200)
 def dots():
     S["hex_after_slider"] = editor().property("hex")
-    wall = [d for d in items("ColorDot") if d.property("c") == S["wall_colors"][-1]][0]
-    click(wall)                                  # un colore preso dallo sfondo
+    if S["wall_colors"]:                         # un colore preso dallo sfondo (se c'è uno sfondo)
+        click([d for d in items("ColorDot") if d.property("c") == S["wall_colors"][-1]][0])
 
 
 @step(200)
@@ -180,7 +211,6 @@ def after_use():
     S["editor_closed"] = editor().property("role") == ""
     S["draft_accent"] = d["colors"]["accent"]
     S["dirty"] = obj("eng").property("dirty")
-    S["apply_enabled"] = btn("Applica ✓").property("enabledBtn")
     S["theme_untouched"] = theme_file()["colors"]["accent"]
     click(swatch("Inizio"))
 
@@ -195,9 +225,17 @@ def border():
 
 
 @step(1500)
-def apply_():
+def to_apply():
     S["draft_border"] = draft()["colors"]["borderFrom"]
     shot("3-modified")
+    click(obj("step3"))
+
+
+@step(300)
+def apply_():
+    S["changes"] = len(val(obj("main").property("changes")))
+    S["apply_enabled"] = btn("Applica ✓").property("enabledBtn")
+    shot("4-review")
     click(btn("Applica ✓"))
 
 
@@ -205,7 +243,8 @@ def apply_():
 def applied():
     t = theme_file()
     S["applied"] = [t["colors"]["accent"], t["colors"]["borderFrom"]]
-    with open(os.path.expanduser("~/.config/hypr/config/decoration.lua")) as f:
+    hypr = [os.path.expanduser(p) for p in ("~/.config/hypr/config/decoration.lua", "~/.config/hypr/hyprland.conf")]
+    with open([p for p in hypr if os.path.exists(p)][0]) as f:
         S["hypr_border"] = "rgba(ff00aaff)" in f.read().lower()
     click(btn("Tieni ✓"))
 

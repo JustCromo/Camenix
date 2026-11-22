@@ -53,11 +53,14 @@ def keys(template):
     return {m.group(1) for m in PH.finditer(template)}
 
 
-def adopt(text, theme):
+def adopt(text, theme, prefer=()):
     """Testo di una config -> (modello, numero di segnaposto). Solo i colori uguali a un ruolo del tema
-    diventano segnaposto (in caso di colori uguali vince il primo ruolo dell'elenco); gli altri restano."""
+    diventano segnaposto; gli altri restano. In caso di colori uguali vincono i ruoli `prefer` (quelli
+    che quel file usa davvero, es. i bordi per Hyprland), poi il primo ruolo dell'elenco."""
     by_hex = {}
-    for key, value in theme["colors"].items():
+    order = [k for k in prefer if k in theme["colors"]] + [k for k in theme["colors"] if k not in prefer]
+    for key in order:
+        value = theme["colors"][key]
         by_hex.setdefault(value[1:].upper(), key)
     count = 0
 

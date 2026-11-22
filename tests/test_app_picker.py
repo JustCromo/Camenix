@@ -39,6 +39,9 @@ class TestPicker(unittest.TestCase):
         s = json.loads(pathlib.Path(shots, "report.json").read_text())
         self.assertEqual(s["errors"], [], r.stderr[-2000:])
         s = s["steps"]
+        self.assertEqual(s["start_step"], 1)                             # si parte da ① Sfondo
+        self.assertEqual(s["step"], 2)
+        self.assertEqual(s["changes"], 2)                                # ③ elenca accento e bordo
         self.assertEqual(s["hover_zones"], ["pills", "menu", "lock"])     # il passaggio illumina l'anteprima
         self.assertEqual(s["editor_role"], "accent")
         self.assertTrue(s["wall_colors"])                                # colori letti dallo sfondo
@@ -57,6 +60,35 @@ class TestPicker(unittest.TestCase):
         self.assertTrue(s["hypr_border"])                                # arrivato fino a Hyprland
         self.assertFalse(s["awaiting"])                                  # "Tieni" chiude il paracadute
         self.assertEqual(s["kept"], "#3FE0D0")
+
+
+    def test_first_run_on_a_new_desktop(self):
+        # un desktop "di fabbrica": nessun tema Camenix, config di esempio di Hyprland, kitty e mako
+        from tests.test_detect import STOCK
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        for rel, text in STOCK.items():
+            p = pathlib.Path(home, rel)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text)
+        hypr_before = pathlib.Path(home, ".config/hypr/hyprland.conf").read_text()
+        env = {"HOME": home, "PATH": "/usr/bin:/bin", "QT_QPA_PLATFORM": "offscreen", "LANG": "C.UTF-8"}
+        shots = os.path.join(home, "foto")
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "app_picker_run.py"), shots, "--first"],
+                           env=env, capture_output=True, text=True, timeout=120)
+        s = json.loads(pathlib.Path(shots, "report.json").read_text())
+        self.assertEqual(s["errors"], [], r.stderr[-2000:])
+        s = s["steps"]
+        self.assertTrue(s["first_run"] and s["welcome_visible"])
+        self.assertFalse(s["theme_before_start"])                        # prima di "Inizia" non scrive niente
+        self.assertEqual(s["detected_border"], "#33CCFF")                # colori letti dal desktop
+        self.assertFalse(s["first_run_after"])
+        self.assertEqual(s["theme_border"], "#33CCFF")
+        self.assertEqual(s["draft_border_start"], "#33CCFF")
+        self.assertEqual(s["applied"], ["#3FE0D0", "#FF00AA"])          # poi tutto funziona come sempre
+        hypr = pathlib.Path(home, ".config/hypr/hyprland.conf").read_text()
+        self.assertIn("rgba(ff00aaee)", hypr)                           # il bordo arriva a Hyprland
+        self.assertEqual(hypr.replace("ff00aa", "33ccff"), hypr_before)  # e nient'altro cambia nel file
 
 
 if __name__ == "__main__":
