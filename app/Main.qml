@@ -158,8 +158,8 @@ Rectangle {
                     color: pal.accent
                     Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 }
-                Text { x: 9; anchors.verticalCenter: parent.verticalCenter; text: "☀"; color: main.dark ? pal.fg : pal.accentInk; font.pixelSize: 13 }
-                Text { anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter; text: "☾"; color: main.dark ? pal.accentInk : pal.fg; font.pixelSize: 13 }
+                ModeIcon { x: 16 - width / 2; anchors.verticalCenter: parent.verticalCenter; ink: main.dark ? pal.fg : pal.accentInk }
+                ModeIcon { x: parent.width - 16 - width / 2; anchors.verticalCenter: parent.verticalCenter; moon: true; ink: main.dark ? pal.accentInk : pal.fg }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: main.eng.setMode(main.dark ? "light" : "dark") }
             }
             Item {

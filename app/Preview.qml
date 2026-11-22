@@ -50,10 +50,10 @@ Rectangle {
         source: img
         visible: pv.lock
         blurEnabled: true
-        // come hyprlock: più passaggi e più grandezza = più sfocato; luminosità e vivacità dal file
-        // raggio come hyprlock (circa passaggi × grandezza × 2 pixel), riportato alla scala dell'anteprima
-        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size * 2 * pv.k / 64) : 0.6
-        blurMax: 64
+        // come hyprlock: più passaggi e più grandezza = più sfocato (circa 0,7 × passaggi × grandezza pixel,
+        // riportati alla scala dell'anteprima); luminosità e vivacità dal file
+        blur: pv.bg ? Math.min(1, pv.bg.blur_passes * pv.bg.blur_size * 0.7 * pv.k / 32) : 0.35
+        blurMax: 32
         brightness: pv.bg ? Math.max(-1, Math.min(1, pv.bg.brightness - 1)) : -0.03
         saturation: pv.bg ? Math.max(-1, Math.min(1, pv.bg.vibrancy / 2)) : 0
     }

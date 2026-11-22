@@ -42,6 +42,21 @@ class TestBorders(unittest.TestCase):
         back = dv.derive(dict(tried, accent=current["accent"]), current)
         self.assertEqual(back, current)
 
+    def test_icons_and_links_stay_visible(self):
+        # palette chiarissima (come quelle ricavate da uno sfondo pastello): icone e link restano leggibili
+        c = th.defaults()
+        c.update(glass="#F4F0FB", secondary="#E6DDF7", accent2="#FFE7A6", text="#2A2233")
+        out = dv.derive(c)
+        for role, cap in dv.FOREGROUND.items():
+            target = min(cap, dv.contrast(th.defaults()[role], th.defaults()["glass"]))
+            self.assertGreaterEqual(dv.contrast(out[role], out["glass"]) + 0.01, target, role)
+        # pannelli scuri: si schiarisce invece di scurire
+        c = th.defaults()
+        c.update(glass="#14101A", secondary="#2A2140", text="#F0EAF8")
+        out = dv.derive(c)
+        self.assertGreaterEqual(dv.contrast(out["secondaryDeep"], out["glass"]) + 0.01, 3)
+        self.assertEqual(dv.derive(th.defaults()), th.defaults())          # la palette originale non cambia
+
     def test_labels(self):
         self.assertNotEqual(t("role.borderFrom"), "role.borderFrom")
         self.assertNotEqual(t("role.borderTo"), "role.borderTo")

@@ -59,4 +59,46 @@ def derive(colors, previous=None):
             # colore principale tornato com'era (es. "palette in uso" dopo un'altra palette):
             # tornano anche le sue sfumature, non restano quelle della prova di prima
             out[derived] = previous[derived]
+    return legible(out)
+
+
+# sfumature usate come testo o icone sopra i pannelli: devono restare visibili
+FOREGROUND = {"textAlt": 4.5, "textMuted": 3, "accentDeep": 3, "accentDeeper": 3, "secondaryDeep": 3,
+              "secondaryDarker": 3, "warningStrong": 3, "caution": 3, "errorBright": 3}
+
+
+def _lum(hex_color):
+    def ch(i):
+        c = int(hex_color[i:i + 2], 16) / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(1) + 0.7152 * ch(3) + 0.0722 * ch(5)
+
+
+def contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def legible(colors):
+    """Le sfumature "da scrittura" (icone, link, testi secondari) vengono scurite o schiarite quanto basta
+    per staccarsi dal colore dei pannelli. L'obiettivo è il contrasto che avevano nella palette originale
+    (al massimo 3:1 per le icone, 4,5:1 per il testo): così la palette originale resta identica."""
+    defaults = th.defaults()
+    glass = colors.get("glass")
+    if not glass:
+        return colors
+    out = dict(colors)
+    glass_light = _lum(glass) > 0.18
+    for role, cap in FOREGROUND.items():
+        if role not in out:
+            continue
+        target = min(cap, contrast(defaults[role], defaults["glass"]))
+        h, l, s = to_hls(out[role])
+        for _ in range(60):
+            if contrast(out[role], glass) >= target:
+                break
+            l = l - 0.02 if glass_light else l + 0.02
+            if l < 0 or l > 1:
+                break
+            out[role] = to_hex(h, l, s)
     return out
