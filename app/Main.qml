@@ -53,8 +53,30 @@ Rectangle {
             Text { text: "tema del desktop · Hyprland"; color: pal.muted; font.family: pal.font; font.pixelSize: 11 }
         }
     }
+    Item {                                          // chiudi l'app: una ✕ leggera, rossa al passaggio
+        id: closeBtn
+        anchors.right: parent.right; anchors.rightMargin: 16
+        y: 20
+        width: 32; height: 32
+        Rectangle {
+            anchors.fill: parent
+            radius: 16
+            color: closeArea.containsMouse ? Qt.alpha(pal.bad, 0.14) : "transparent"
+            Behavior on color { ColorAnimation { duration: 120 } }
+        }
+        Text {
+            anchors.centerIn: parent
+            text: "✕"
+            color: closeArea.containsMouse ? pal.bad : pal.muted
+            font.pixelSize: 15
+            Behavior on color { ColorAnimation { duration: 120 } }
+        }
+        MouseArea { id: closeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+    }
+    focus: true
+    Keys.onEscapePressed: if (editor.role !== "") editor.role = ""; else Qt.quit()
     Rectangle {                                     // interruttore chiaro / scuro
-        anchors.right: parent.right; anchors.rightMargin: 22
+        anchors.right: closeBtn.left; anchors.rightMargin: 10
         y: 20
         width: 74; height: 32; radius: 16
         color: pal.card

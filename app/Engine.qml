@@ -11,13 +11,13 @@ QtObject {
     readonly property string home: Quickshell.env("HOME")
     readonly property string engine: Quickshell.shellDir + "/../bin/camenix-engine"
     readonly property string cfgDir: home + "/.config/camenix"
-    readonly property string draftPath: cfgDir + "/draft.json"
 
     property var current: null          // tema applicato
     property var draft: null            // tema in modifica (quello mostrato nell'anteprima)
     readonly property bool dirty: !!current && !!draft && JSON.stringify(current) !== JSON.stringify(draft)
     property string mode: "light"       // tema dell'app: "light" | "dark"
     property bool busy: false
+    readonly property var baseRoles: ["text", "glass", "accent", "accent2", "secondary", "success", "warning", "error"]
     property string error: ""           // messaggio da mostrare (una frase)
     property var conflicts: []          // file modificati a mano che bloccano "Applica"
     property bool awaitingKeep: false   // paracadute attivo
@@ -64,8 +64,7 @@ QtObject {
     }
 
     // ── modifiche alla bozza ───────────────────────────
-    property FileView draftFile: FileView { path: eng.draftPath }
-    function saveDraft() { draftFile.setText(JSON.stringify(draft, null, 2) + "\n") }
+    // la bozza viaggia come argomento del motore: nessun file intermedio da aspettare
 
     function setColor(role, hex) {
         if (!draft || !validHex(hex)) return false
@@ -74,14 +73,24 @@ QtObject {
         else if (role in d.colors) d.colors[role] = hex.toUpperCase()
         else return false
         draft = d
-        saveDraft()
+        deriveProc.command = [engine, "derive", JSON.stringify(d)]
         deriveProc.running = true        // le sfumature seguono il colore principale
         return true
     }
     property Process deriveProc: Process {
-        command: [eng.engine, "derive", eng.draftPath]
         stdout: StdioCollector {
-            onStreamFinished: { try { const d = JSON.parse(text); if (d && d.colors) eng.draft = d } catch (e) {} }
+            onStreamFinished: {
+                try {
+                    const d = JSON.parse(text)
+                    // risposta di una modifica superata (es. due colori cambiati di fila): si ignora
+                    if (d && d.colors && JSON.stringify(d.colors) !== JSON.stringify(eng.draft.colors)) {
+                        const mine = eng.draft.colors, keep = {}
+                        for (const k in mine) keep[k] = mine[k]
+                        for (const k in d.colors) if (eng.baseRoles.indexOf(k) < 0) keep[k] = d.colors[k]
+                        const nd = eng.clone(eng.draft); nd.colors = keep; eng.draft = nd
+                    }
+                } catch (e) {}
+            }
         }
     }
 
@@ -122,11 +131,10 @@ QtObject {
     function apply() {
         if (busy || !draft) return
         busy = true; error = ""; conflicts = []
-        saveDraft()
+        applyProc.command = [engine, "apply-draft", JSON.stringify(draft), "--json"]
         applyProc.running = true
     }
     property Process applyProc: Process {
-        command: [eng.engine, "apply-file", eng.draftPath, "--json"]
         stdout: StdioCollector {
             onStreamFinished: {
                 eng.busy = false

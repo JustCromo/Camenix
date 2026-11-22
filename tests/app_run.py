@@ -122,7 +122,6 @@ def s7():
     report["errors"] = errors
     with open(os.path.join(out, "report.json"), "w") as f:
         json.dump(report, f, indent=1)
-    os.remove(wrap)
     app.quit()
 
 
@@ -130,4 +129,8 @@ t = 0
 for delay, fn in steps:
     t += delay
     QTimer.singleShot(t, fn)
-app.exec()
+try:
+    app.exec()
+finally:
+    if os.path.exists(wrap):                 # anche se qualcosa va storto, non lascia file nell'app
+        os.remove(wrap)

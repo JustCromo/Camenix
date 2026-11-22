@@ -132,12 +132,18 @@ class FileView(QObject):
     def text(self):
         return self._text
 
+    saved = Signal()
+
     @Slot(str)
     def setText(self, t):
-        os.makedirs(os.path.dirname(self._path), exist_ok=True)
-        with open(self._path, "w", encoding="utf-8") as f:
-            f.write(t)
+        """Come il FileView vero: la scrittura avviene dopo (in background), non subito."""
         self._text = t
+        def write():
+            os.makedirs(os.path.dirname(self._path), exist_ok=True)
+            with open(self._path, "w", encoding="utf-8") as f:
+                f.write(t)
+            self.saved.emit()
+        QTimer.singleShot(400, write)
 
 
 class QuickshellSingleton(QObject):

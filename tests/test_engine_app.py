@@ -41,10 +41,7 @@ class TestDerive(unittest.TestCase):
 
 class TestAppEngine(FakeHome):
     def draft(self, data):
-        p = self.p(".cache/camenix/draft.json")
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        pathlib.Path(p).write_text(json.dumps(data) if not isinstance(data, str) else data)
-        return p
+        return json.dumps(data) if not isinstance(data, str) else data
 
     def test_derive_draft(self):
         ap.setup()
@@ -55,17 +52,13 @@ class TestAppEngine(FakeHome):
         self.assertNotEqual(out["colors"]["accentSoft"], th.defaults()["accentSoft"])
 
     def test_draft_hostile(self):
-        for bad in ('{"colors": {"text": "x"', "[]", "A" * (th.MAX_BYTES + 5)):
-            p = self.draft(bad)
-            try:
-                theme = ap.read_draft(p)
-                self.assertEqual(theme["colors"], th.defaults())
-            except (ValueError, files.UnsafeFile):
-                pass
-        outside = os.path.join(os.path.dirname(self.home), "fuori.json")
-        pathlib.Path(outside).write_text("{}")
-        with self.assertRaises(files.UnsafeFile):
-            ap.read_draft(outside)
+        for bad in ('{"colors": {"text": "x"', "A" * (th.MAX_BYTES + 5), None, 42):
+            with self.assertRaises((ValueError, TypeError)):
+                ap.parse_draft(bad)
+        for odd in ("[]", '{"colors": {"text": "red; }"}}', '{"wallpaper": {"home": "/x/a.png\\nexec-once = rm"}}'):
+            theme = ap.parse_draft(odd)
+            self.assertEqual(theme["colors"], th.defaults())
+            self.assertIsNone(theme["wallpaper"]["home"])
 
     def test_import_wallpaper_copies_and_dedupes(self):
         a = ap.import_wallpaper(self.wall)

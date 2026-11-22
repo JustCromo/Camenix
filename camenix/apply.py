@@ -243,19 +243,17 @@ def undo():
 
 
 # ── per l'app ────────────────────────────────────────────
-def read_draft(path):
-    """Bozza scritta dall'app -> tema normalizzato. Stesse regole di sicurezza del tema vero."""
-    real = files.resolve(path)
-    if os.path.getsize(real) > th.MAX_BYTES:
-        raise files.UnsafeFile(path)
-    data = json.loads(files.read_text(real, limit=th.MAX_BYTES))
-    theme, _ = th.normalize(data)
+def parse_draft(text):
+    """Bozza inviata dall'app (testo JSON) -> tema normalizzato. È input non fidato: stesse regole del tema."""
+    if not isinstance(text, str) or len(text.encode("utf-8", "replace")) > th.MAX_BYTES:
+        raise ValueError("draft too big")
+    theme, _ = th.normalize(json.loads(text))
     return theme
 
 
-def derive_draft(path):
+def derive_draft(text):
     """Ricalcola le sfumature della bozza rispetto al tema attuale."""
-    draft = read_draft(path)
+    draft = parse_draft(text)
     current, _, _ = th.read()
     draft["colors"] = dv.derive(draft["colors"], current["colors"])
     return draft
