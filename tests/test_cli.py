@@ -79,6 +79,17 @@ class TestCli(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertNotIn("root:", r.stdout + r.stderr)
 
+    def test_set_says_applied_even_without_linked_files(self):
+        r = run("set", "accent", "#3FE0D0")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("Tema applicato", r.stdout)
+        self.assertIn("#3FE0D0", pathlib.Path(self.theme).read_text())
+
+    def test_set_rejects_bad_input(self):
+        self.assertEqual(run("set", "accent", "red").returncode, 2)
+        self.assertEqual(run("set", "__proto__", "#FFFFFF").returncode, 2)
+        self.assertFalse(os.path.exists(self.theme))
+
     def test_version(self):
         self.assertRegex(run("--version").stdout.strip(), r"^\d+\.\d+\.\d+$")
 

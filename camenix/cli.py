@@ -121,7 +121,7 @@ def _fail(err, message, hint, code=USAGE):
     return code
 
 
-def _print_report(rep, args, out, err):
+def _print_report(rep, args, out, err, changed=False):
     if "--json" in args:
         print(json.dumps(rep.as_dict(), ensure_ascii=False))
     else:
@@ -139,7 +139,7 @@ def _print_report(rep, args, out, err):
             if rep.wallpaper:
                 key = "apply.wallpaper" if rep.wallpaper["ok"] else "apply.wallpaper_fail"
                 out.line("  " + t(key, path=rep.wallpaper["path"]))
-            done = rep.written or rep.reloaded or rep.wallpaper
+            done = changed or rep.written or rep.reloaded or rep.wallpaper
             out.line(out.role(t("apply.ok") if done else t("apply.nothing"), "ok"))
     return PROBLEM if (rep.conflicts or rep.errors) else OK
 
@@ -190,7 +190,7 @@ def cmd_set(args, out, err):
     if not th.HEX.match(color):
         return _fail(err, t("set.bad_color", color=color[:20]), t("set.bad_color_hint"))
     target[key] = color.upper()
-    return _print_report(ap.change_theme(theme), args, out, err)
+    return _print_report(ap.change_theme(theme), args, out, err, changed=True)
 
 
 def cmd_wallpaper(args, out, err):
@@ -201,7 +201,7 @@ def cmd_wallpaper(args, out, err):
         if not wpm.is_image(path) or not th._valid_wallpaper(path):
             return _fail(err, t("wallpaper.bad", path=pos[1][:200]), t("wallpaper.bad_hint"))
         theme["wallpaper"]["home"] = path
-        return _print_report(ap.change_theme(theme), args, out, err)
+        return _print_report(ap.change_theme(theme), args, out, err, changed=True)
     path = theme["wallpaper"]["home"]                # avvio: mostra lo sfondo del tema
     if not path:
         return _fail(err, t("wallpaper.none"), t("wallpaper.none_hint"), code=PROBLEM)
@@ -219,7 +219,7 @@ def cmd_undo(args, out, err):
     rep = ap.undo()
     if rep is None:
         return _fail(err, t("undo.empty"), t("undo.empty_hint"), code=PROBLEM)
-    return _print_report(rep, args, out, err)
+    return _print_report(rep, args, out, err, changed=True)
 
 
 def cmd_adopt(args, out, err):
