@@ -83,6 +83,17 @@ class TestPicker(unittest.TestCase):
         self.assertNotIn("0xcafe", batch)                               # stesso titolo ma non è un selettore
         self.assertNotIn("setfloating", batch)                          # era già flottante
 
+    def test_portal_window(self):
+        # come sul PC di Ivan: zenity chiede la finestra a xdg-desktop-portal-gtk (altro processo)
+        clients = [{"pid": 1414, "address": "0x77", "class": "xdg-desktop-portal-gtk", "title": "Choose image…", "floating": False},
+                   {"pid": 1414, "address": "0x78", "class": "xdg-desktop-portal-gtk", "title": "Salva file", "floating": False}]
+        system.run = lambda argv, timeout=10: (self.calls.append(argv) or True, json.dumps(clients))
+        self.assertTrue(picker.bring_to_front(5, tries=1, sleep=lambda s: None, title="Choose image…"))
+        batch = [c for c in self.calls if "--batch" in c][0][2]
+        self.assertIn("address:0x77", batch)
+        self.assertNotIn("0x78", batch)                                 # un'altra finestra del portale: no
+        self.assertIn("setfloating", batch)
+
     def test_bad_hyprctl_answers(self):
         for out in ("non json", "{}", json.dumps([{"pid": 7, "address": "0x1;dispatch exec rm"}])):
             system.run = lambda argv, timeout=10, o=out: (self.calls.append(argv) or True, o)

@@ -30,12 +30,14 @@ def command(title):
 
 
 def _ours(c, pid, title):
-    """La finestra è quella che abbiamo aperto noi? Stesso pid, oppure (se il programma passa da un
-    processo figlio) stesso titolo e programma di scelta file."""
+    """La finestra è quella che abbiamo aperto noi? Stesso pid, oppure stesso titolo e programma di scelta
+    file (quando la finestra la apre un altro processo)."""
     if c.get("pid") == pid:
         return True
+    # zenity e kdialog spesso chiedono la finestra al "portale" del desktop (xdg-desktop-portal-gtk/kde):
+    # allora la finestra è del portale, con il nostro titolo
     cls = str(c.get("class", "")).lower()
-    return bool(title) and c.get("title") == title and ("zenity" in cls or "kdialog" in cls)
+    return bool(title) and c.get("title") == title and any(k in cls for k in ("zenity", "kdialog", "xdg-desktop-portal"))
 
 
 def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep, title=""):
