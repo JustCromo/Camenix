@@ -4,8 +4,10 @@ Su Hyprland una finestra nuova può finire dietro: se l'app è flottante o a tut
 scelta (che di base si affianca) resta sotto e non si vede. Appena compare, la facciamo diventare
 flottante, centrata, in primo piano e attiva. Si tocca solo la finestra del processo che abbiamo
 avviato noi (riconosciuta dal suo pid), nient'altro."""
+import ctypes
 import json
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -65,16 +67,44 @@ def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep, title=""):
     return False
 
 
+PR_SET_PDEATHSIG = 1
+
+
+def _die_with_parent():
+    """Linux: se il processo che ci ha avviato muore, riceviamo SIGTERM (così niente finestre orfane)."""
+    try:
+        ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGTERM, 0, 0, 0)
+    except (OSError, AttributeError):
+        pass
+
+
+def child_env():
+    """zenity/kdialog disegnano la finestra da soli invece di chiederla al portale del desktop:
+    così è davvero loro (pid giusto) e si chiude con loro."""
+    env = dict(os.environ)
+    env["GTK_USE_PORTAL"] = "0"                       # GTK 3
+    env["GDK_DEBUG"] = "no-portals"                   # GTK 4
+    return env
+
+
 def pick(title):
     """-> {"ok": bool, "path": str, "why": ""|"cancel"|"no-picker"}"""
     argv = command(title)
     if not argv:
         return {"ok": False, "path": "", "why": "no-picker"}
+    _die_with_parent()                                # Camenix chiusa -> il motore se ne va...
     try:
         proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, text=True)
+                                stderr=subprocess.DEVNULL, text=True, env=child_env(),
+                                preexec_fn=_die_with_parent)          # ...e con lui la finestra di scelta
     except OSError:
         return {"ok": False, "path": "", "why": "no-picker"}
+
+    def stop(signum, frame):
+        proc.terminate()
+        os._exit(1)
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(sig, stop)
     watcher = threading.Thread(target=bring_to_front, args=(proc.pid,), kwargs={"title": _clean_title(title)}, daemon=True)
     watcher.start()
     out, _ = proc.communicate()

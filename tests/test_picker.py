@@ -94,6 +94,33 @@ class TestPicker(unittest.TestCase):
         self.assertNotIn("0x78", batch)                                 # un'altra finestra del portale: no
         self.assertIn("setfloating", batch)
 
+    def test_dialog_closes_with_camenix(self):
+        # il motore (che apre la finestra) viene chiuso: anche la finestra di scelta deve sparire
+        import subprocess
+        import sys
+        import time
+        marker = os.path.join(self.bin, "alive")
+        self.fake("zenity", f'trap "exit 0" TERM; while true; do touch {marker}; sleep 0.1; done')
+        code = ("import sys; sys.path.insert(0, %r); from camenix import picker; picker.pick('t')"
+                % os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        env = dict(os.environ, PATH=self.bin + ":/usr/bin:/bin")
+        engine = subprocess.Popen([sys.executable, "-c", code], env=env)
+        deadline = time.time() + 5
+        while not os.path.exists(marker) and time.time() < deadline:
+            time.sleep(0.05)
+        self.assertTrue(os.path.exists(marker))
+        engine.terminate()
+        engine.wait(5)
+        time.sleep(0.3)
+        os.remove(marker)
+        time.sleep(0.4)
+        self.assertFalse(os.path.exists(marker))                        # zenity non scrive più: è chiuso
+
+    def test_no_portal_env(self):
+        env = picker.child_env()
+        self.assertEqual(env["GTK_USE_PORTAL"], "0")
+        self.assertEqual(env["GDK_DEBUG"], "no-portals")
+
     def test_bad_hyprctl_answers(self):
         for out in ("non json", "{}", json.dumps([{"pid": 7, "address": "0x1;dispatch exec rm"}])):
             system.run = lambda argv, timeout=10, o=out: (self.calls.append(argv) or True, o)
