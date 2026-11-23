@@ -73,6 +73,16 @@ class TestPicker(unittest.TestCase):
         self.assertIsNone(picker.command("t"))
         self.assertEqual(picker.pick("t")["why"], "no-picker")
 
+    def test_match_by_title_when_pid_differs(self):
+        clients = [{"pid": 99, "address": "0xbeef", "class": "zenity", "title": "Choose image…", "floating": True},
+                   {"pid": 98, "address": "0xcafe", "class": "kitty", "title": "Choose image…"}]
+        system.run = lambda argv, timeout=10: (self.calls.append(argv) or True, json.dumps(clients))
+        self.assertTrue(picker.bring_to_front(1, tries=1, sleep=lambda s: None, title="Choose image…"))
+        batch = [c for c in self.calls if "--batch" in c][0][2]
+        self.assertIn("0xbeef", batch)
+        self.assertNotIn("0xcafe", batch)                               # stesso titolo ma non è un selettore
+        self.assertNotIn("setfloating", batch)                          # era già flottante
+
     def test_bad_hyprctl_answers(self):
         for out in ("non json", "{}", json.dumps([{"pid": 7, "address": "0x1;dispatch exec rm"}])):
             system.run = lambda argv, timeout=10, o=out: (self.calls.append(argv) or True, o)

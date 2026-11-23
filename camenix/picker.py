@@ -29,7 +29,16 @@ def command(title):
     return None
 
 
-def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep):
+def _ours(c, pid, title):
+    """La finestra è quella che abbiamo aperto noi? Stesso pid, oppure (se il programma passa da un
+    processo figlio) stesso titolo e programma di scelta file."""
+    if c.get("pid") == pid:
+        return True
+    cls = str(c.get("class", "")).lower()
+    return bool(title) and c.get("title") == title and ("zenity" in cls or "kdialog" in cls)
+
+
+def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep, title=""):
     """Aspetta che la finestra del processo `pid` compaia e la porta davanti a tutto. -> True se trovata."""
     for _ in range(tries):
         ok, out = system.run(["hyprctl", "clients", "-j"])
@@ -38,7 +47,7 @@ def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep):
         except ValueError:
             clients = []
         for c in clients if isinstance(clients, list) else []:
-            if isinstance(c, dict) and c.get("pid") == pid:
+            if isinstance(c, dict) and _ours(c, pid, title):
                 addr = str(c.get("address", ""))
                 if not addr.startswith("0x") or not all(ch in "0123456789abcdefx" for ch in addr.lower()):
                     return False
@@ -64,7 +73,7 @@ def pick(title):
                                 stderr=subprocess.DEVNULL, text=True)
     except OSError:
         return {"ok": False, "path": "", "why": "no-picker"}
-    watcher = threading.Thread(target=bring_to_front, args=(proc.pid,), daemon=True)
+    watcher = threading.Thread(target=bring_to_front, args=(proc.pid,), kwargs={"title": _clean_title(title)}, daemon=True)
     watcher.start()
     out, _ = proc.communicate()
     watcher.join(timeout=0.5)                    # (se la finestra non è mai comparsa, non si aspetta oltre)
