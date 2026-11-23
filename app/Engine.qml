@@ -197,15 +197,17 @@ QtObject {
 
     // ── sfondo ─────────────────────────────────────────
     property string pickingFor: "home"
+    // la finestra di scelta la apre il motore, che la porta davanti a tutto (anche se l'app è a tutto schermo)
     property Process pickProc: Process {
-        command: ["sh", "-c", "if command -v zenity >/dev/null; then exec zenity --file-selection --title=\"$1\" --file-filter='PNG, JPEG, WebP | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP'; elif command -v kdialog >/dev/null; then exec kdialog --getopenfilename \"$HOME\" 'image/png image/jpeg image/webp'; else exit 3; fi", "sh", eng.tr("wall.choose")]     // il titolo arriva come $1, mai dentro il comando
+        command: [eng.engine, "pick-image", "--title", eng.tr("wall.choose")]
         stdout: StdioCollector {
             onStreamFinished: {
-                const p = text.trim()
-                if (p.length) eng.importWallpaper(p)
+                let r = null
+                try { r = JSON.parse(text) } catch (e) { return }
+                if (r.ok && r.path) eng.importWallpaper(r.path)
+                else if (r.why === "no-picker") eng.error = eng.tr("err.picker")
             }
         }
-        onExited: (code) => { if (code === 3) eng.error = eng.tr("err.picker") }
     }
     // copia l'immagine scelta tra gli sfondi di Camenix (il motore controlla che sia davvero un'immagine)
     function importWallpaper(path) { importProc.command = [engine, "import-wallpaper", path]; importProc.running = true }

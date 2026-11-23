@@ -19,6 +19,13 @@ Rectangle {
     function hl(z) { return highlight.indexOf(z) >= 0 }
     readonly property var c: theme ? theme.colors : ({})
     readonly property var term: theme ? theme.terminal : ({})
+    // sfondo del blocco, sempre pronto (non dipende dalla scheda aperta: così passare scrivania/blocco è istantaneo)
+    readonly property string lockWall: {
+        if (!theme) return ""
+        const w = theme.wallpaper
+        const p = (!w.lock_same && w.lock) ? w.lock : w.home
+        return p ? "file://" + p : ""
+    }
     readonly property string wall: {
         if (!theme) return ""
         const w = theme.wallpaper
@@ -53,10 +60,10 @@ Rectangle {
     Image {
         id: lockSrc
         visible: false
-        source: pv.lock ? pv.wall : ""
+        source: pv.lockWall
         asynchronous: true
         sourceSize.width: 640
-        onStatusChanged: if (status === Image.Ready) lockCanvas.requestPaint()
+        onStatusChanged: if (status === Image.Ready) blurTimer.restart()
     }
     Canvas {                                  // la versione piccola e sfocata, ingrandita a tutta l'anteprima
         id: lockCanvas
@@ -69,12 +76,15 @@ Rectangle {
         smooth: true                          // ingrandimento con interpolazione morbida
         // raggio in pixel della versione piccola (tarato sulla schermata vera di hyprlock)
         readonly property int r: Math.max(1, Math.min(12, Math.round(pv.lockRadius * sw / pv.screenW)))
-        readonly property string key: [pv.lock, pv.wall, r, height].join()
-        onKeyChanged: requestPaint()
+        // si ricalcola solo se cambia lo sfondo o la misura (non quando passi tra scrivania e blocco),
+        // e con un attimo di attesa: ridimensionare la finestra non fa ripartire il calcolo cento volte
+        readonly property string key: [pv.lockWall, r, height].join()
+        onKeyChanged: blurTimer.restart()
+        Timer { id: blurTimer; interval: 150; onTriggered: lockCanvas.requestPaint() }
         onPaint: {
             const ctx = getContext("2d")
             ctx.reset()
-            if (!pv.lock || lockSrc.status !== Image.Ready) return
+            if (lockSrc.status !== Image.Ready) return
             const iw = lockSrc.implicitWidth, ih = lockSrc.implicitHeight
             if (iw < 1 || ih < 1) return
             // come PreserveAspectCrop (la forma a 9 argomenti di drawImage non è affidabile con un Image)

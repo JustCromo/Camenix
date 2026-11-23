@@ -395,7 +395,16 @@ def cmd_presets(args, out, err):
     return OK
 
 
-COMMANDS = {"presets": cmd_presets, "keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
+def cmd_pick_image(args, out, err):
+    """Finestra per scegliere un'immagine, portata in primo piano. Il percorso lo controlla poi import-wallpaper."""
+    from camenix import picker
+    title = args[args.index("--title") + 1] if "--title" in args and args.index("--title") + 1 < len(args) else ""
+    res = picker.pick(title)
+    print(json.dumps(res, ensure_ascii=False))
+    return OK if res["ok"] else PROBLEM
+
+
+COMMANDS = {"pick-image": cmd_pick_image, "presets": cmd_presets, "keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
             "lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,
