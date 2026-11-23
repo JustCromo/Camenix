@@ -42,6 +42,30 @@ def _ours(c, pid, title):
     return bool(title) and c.get("title") == title and any(k in cls for k in ("zenity", "kdialog", "xdg-desktop-portal"))
 
 
+def front(addr, floating):
+    """Flottante, 960×640, centrata, attiva e sopra le altre. Hyprland ≥ 0.55 (config in Lua) vuole i
+    dispatcher come espressioni Lua (hl.dsp.*); le versioni prima la vecchia sintassi: si prova la nuova
+    e, se Hyprland non risponde "ok" a tutto, la vecchia."""
+    w = f'window = "address:{addr}"'
+    new = [f"dispatch hl.dsp.focus({{ {w} }})"]
+    if not floating:
+        new.append(f'dispatch hl.dsp.window.float({{ action = "set", {w} }})')
+    new += [f"dispatch hl.dsp.window.resize({{ {w}, x = 960, y = 640 }})",
+            f"dispatch hl.dsp.window.center({{ {w} }})",
+            f'dispatch hl.dsp.window.alter_zorder({{ {w}, mode = "top" }})']
+    ok, out = system.run(["hyprctl", "--batch", " ; ".join(new)])
+    answers = (out or "").split()
+    if ok and answers and all(a == "ok" for a in answers):        # ogni comando ha risposto "ok"
+        return "lua"
+    old = [f"dispatch focuswindow address:{addr}"]
+    if not floating:
+        old.append(f"dispatch setfloating address:{addr}")
+    old += [f"dispatch resizewindowpixel exact 960 640,address:{addr}", "dispatch centerwindow",
+            f"dispatch alterzorder top,address:{addr}"]
+    system.run(["hyprctl", "--batch", " ; ".join(old)])
+    return "classic"
+
+
 def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep, title=""):
     """Aspetta che la finestra del processo `pid` compaia e la porta davanti a tutto. -> True se trovata."""
     for _ in range(tries):
@@ -55,13 +79,7 @@ def bring_to_front(pid, tries=60, wait=0.1, sleep=time.sleep, title=""):
                 addr = str(c.get("address", ""))
                 if not addr.startswith("0x") or not all(ch in "0123456789abcdefx" for ch in addr.lower()):
                     return False
-                steps = [f"dispatch focuswindow address:{addr}"]
-                if not c.get("floating"):
-                    steps.append(f"dispatch setfloating address:{addr}")
-                steps += [f"dispatch resizewindowpixel exact 960 640,address:{addr}",
-                          "dispatch centerwindow",
-                          f"dispatch alterzorder top,address:{addr}"]
-                system.run(["hyprctl", "--batch", " ; ".join(steps)])
+                front(addr, bool(c.get("floating")))
                 return True
         sleep(wait)
     return False

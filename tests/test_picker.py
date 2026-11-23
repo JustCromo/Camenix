@@ -36,7 +36,7 @@ class TestPicker(unittest.TestCase):
                 import subprocess  # noqa: F401
                 return True, json.dumps([{"pid": 1, "address": "0xdead", "floating": False},
                                          {"pid": pid.get("p", -1), "address": "0x55aa", "floating": False}])
-            return True, ""
+            return True, "ok\nok\nok\nok\nok"
         system.run = run
         orig = picker.bring_to_front
 
@@ -48,10 +48,10 @@ class TestPicker(unittest.TestCase):
         res = picker.pick("Scegli; rm -rf ~\n")
         self.assertEqual(res, {"ok": True, "path": "/home/x/sfondo.png", "why": ""})
         batch = [c for c in self.calls if c[:2] == ["hyprctl", "--batch"]]
-        self.assertEqual(len(batch), 1)
-        self.assertIn("address:0x55aa", batch[0][2])                    # solo la nostra finestra
+        self.assertEqual(len(batch), 1)                                  # la sintassi Lua è andata: basta così
+        self.assertIn('window = "address:0x55aa"', batch[0][2])          # solo la nostra finestra
         self.assertNotIn("0xdead", batch[0][2])
-        self.assertIn("setfloating", batch[0][2])
+        self.assertIn('hl.dsp.window.float({ action = "set"', batch[0][2])
 
     def test_title_is_an_argument_never_a_command(self):
         system.has = lambda p: p == "zenity"
@@ -81,7 +81,7 @@ class TestPicker(unittest.TestCase):
         batch = [c for c in self.calls if "--batch" in c][0][2]
         self.assertIn("0xbeef", batch)
         self.assertNotIn("0xcafe", batch)                               # stesso titolo ma non è un selettore
-        self.assertNotIn("setfloating", batch)                          # era già flottante
+        self.assertNotIn("float(", batch)                               # era già flottante
 
     def test_portal_window(self):
         # come sul PC di Ivan: zenity chiede la finestra a xdg-desktop-portal-gtk (altro processo)
@@ -92,7 +92,7 @@ class TestPicker(unittest.TestCase):
         batch = [c for c in self.calls if "--batch" in c][0][2]
         self.assertIn("address:0x77", batch)
         self.assertNotIn("0x78", batch)                                 # un'altra finestra del portale: no
-        self.assertIn("setfloating", batch)
+        self.assertIn("float(", batch)
 
     def test_dialog_closes_with_camenix(self):
         # il motore (che apre la finestra) viene chiuso: anche la finestra di scelta deve sparire
@@ -120,6 +120,18 @@ class TestPicker(unittest.TestCase):
         env = picker.child_env()
         self.assertEqual(env["GTK_USE_PORTAL"], "0")
         self.assertEqual(env["GDK_DEBUG"], "no-portals")
+
+    def test_old_hyprland_falls_back_to_classic_syntax(self):
+        def run(argv, timeout=10):
+            self.calls.append(argv)
+            if "hl.dsp" in " ".join(argv):
+                return True, "Invalid dispatcher"              # Hyprland vecchio: non conosce hl.dsp
+            return True, "ok"
+        system.run = run
+        self.assertEqual(picker.front("0xabc", False), "classic")
+        self.assertIn("setfloating address:0xabc", self.calls[-1][2])
+        system.run = lambda argv, timeout=10: (self.calls.append(argv) or True, "ok ok ok")
+        self.assertEqual(picker.front("0xabc", True), "lua")
 
     def test_bad_hyprctl_answers(self):
         for out in ("non json", "{}", json.dumps([{"pid": 7, "address": "0x1;dispatch exec rm"}])):
