@@ -4,7 +4,7 @@ import locale
 import os
 import sys
 
-from camenix import __version__, apply as ap, derive as dv, detect, files, safety, theme as th, wallpaper as wpm
+from camenix import __version__, apply as ap, derive as dv, detect, files, login, safety, theme as th, wallpaper as wpm
 from camenix.i18n import t
 
 USAGE = 2
@@ -296,6 +296,15 @@ def cmd_apply_draft(args, out, err):
     return _print_report(rep, args + ["--json"], out, err, changed=True)
 
 
+def cmd_login(args, out, err):
+    """Copia subito lo sfondo del tema attuale nella schermata di accesso (dopo la preparazione con sudo)."""
+    theme, _, _ = th.read()
+    img = login.image_for(theme)
+    result = login.sync(img) if img else "bad"
+    print(json.dumps({"ok": result in ("copied", "same"), "login": result, "path": login.target()}))
+    return OK if result in ("copied", "same") else PROBLEM
+
+
 def cmd_keep(args, out, err):
     print(json.dumps({"ok": True, "was_pending": safety.keep()}))
     return OK
@@ -404,7 +413,7 @@ def cmd_pick_image(args, out, err):
     return OK if res["ok"] else PROBLEM
 
 
-COMMANDS = {"pick-image": cmd_pick_image, "presets": cmd_presets, "keep": cmd_keep, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
+COMMANDS = {"pick-image": cmd_pick_image, "presets": cmd_presets, "keep": cmd_keep, "login": cmd_login, "revert": cmd_revert, "guard": cmd_guard, "snapshot": cmd_snapshot,
             "lockscreen": cmd_lockscreen, "detect": cmd_detect, "first-run": cmd_first_run, "derive": cmd_derive, "apply-draft": cmd_apply_draft, "import-wallpaper": cmd_import,
             "reset-colors": cmd_reset_colors, "install": cmd_install,
             "status": cmd_status, "init": cmd_init, "check": cmd_check, "setup": cmd_setup, "apply": cmd_apply,

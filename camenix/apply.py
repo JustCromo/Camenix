@@ -10,7 +10,7 @@ import re
 import time
 from importlib import resources
 
-from camenix import derive as dv, detect, files, render, system, theme as th, wallpaper
+from camenix import derive as dv, detect, files, login, render, system, theme as th, wallpaper
 import shutil
 
 KITTY_INCLUDE = "include ~/.config/camenix/generated/kitty.conf"
@@ -143,10 +143,12 @@ class Report:
     def __init__(self):
         self.written, self.skipped, self.conflicts, self.errors, self.reloaded = [], [], [], [], []
         self.wallpaper = None
+        self.login = None
 
     def as_dict(self):
         return {"ok": not (self.conflicts or self.errors), "written": self.written, "conflicts": self.conflicts,
-                "errors": self.errors, "reloaded": self.reloaded, "wallpaper": self.wallpaper}
+                "errors": self.errors, "reloaded": self.reloaded, "wallpaper": self.wallpaper,
+                "login": self.login}
 
 
 def apply(theme=None, dry_run=False, do_reload=True):
@@ -208,6 +210,12 @@ def apply(theme=None, dry_run=False, do_reload=True):
         if ok:
             state["wallpaper"] = wp
     save_state(state)
+
+    # sfondo della schermata di accesso: solo se l'utente ha preparato /var/lib/camenix
+    if do_reload:
+        img = login.image_for(theme)
+        if img:
+            report.login = login.sync(img)
 
     if do_reload:
         kinds = {e["reload"] for _, _, e in plan if e is not None}
