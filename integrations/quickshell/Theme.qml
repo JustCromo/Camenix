@@ -89,6 +89,51 @@ Singleton {
         return "#" + (v < 16 ? "0" : "") + v.toString(16) + String(c).slice(1)
     }
 
+    // ── leggibilità ─────────────────────────────────────
+    // Colori usati come scritte e icone sopra il vetro delle isole (batteria, spegnimento, avvisi).
+    // Se la palette li rende poco visibili (es. verde scuro su vetro scuro), si schiariscono o si
+    // scuriscono quanto basta. La palette originale non cambia; theme.json resta com'è.
+    readonly property var readableRoles: ({ text: 4.5, success: 4.5, error: 4.5, warning: 3, accent2: 3 })
+    function lum(hex) {
+        const ch = i => { const c = parseInt(hex.substr(i, 2), 16) / 255
+                          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
+        return 0.2126 * ch(1) + 0.7152 * ch(3) + 0.0722 * ch(5)
+    }
+    function contrast(x, y) { const p = lum(x), q = lum(y); return (Math.max(p, q) + 0.05) / (Math.min(p, q) + 0.05) }
+    function toHsl(hex) {
+        const r = parseInt(hex.substr(1, 2), 16) / 255, g = parseInt(hex.substr(3, 2), 16) / 255, b = parseInt(hex.substr(5, 2), 16) / 255
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn
+        if (d === 0) return [0, 0, l]
+        const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn)
+        let h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return [h / 6, s, l]
+    }
+    function fromHsl(h, s, l) {
+        const f = n => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l)
+                         const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+                         const x = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).toUpperCase()
+                         return x.length < 2 ? "0" + x : x }
+        return "#" + f(0) + f(8) + f(4)
+    }
+    function readable(colors) {
+        const out = {}
+        for (const k in colors) out[k] = colors[k]
+        const glass = out.glass, darken = lum(glass) > 0.18
+        for (const role in readableRoles) {
+            // palette originale intatta: identica a prima
+            if (out[role] === defaults[role] && glass === defaults.glass) continue
+            const target = Math.min(readableRoles[role], Math.max(3, contrast(defaults[role], defaults.glass)))
+            const hsl = toHsl(out[role])
+            let l = hsl[2]
+            for (let i = 0; i < 60 && contrast(out[role], glass) < target; i++) {
+                l += darken ? -0.02 : 0.02
+                if (l < 0 || l > 1) break
+                out[role] = fromHsl(hsl[0], hsl[1], l)
+            }
+        }
+        return out
+    }
+
     readonly property int maxBytes: 65536
     function valid(v) { return typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v) }
 
@@ -100,8 +145,8 @@ Singleton {
         const colors = (data && typeof data === "object" && data.colors && typeof data.colors === "object") ? data.colors : {}
         const out = {}
         for (const key in defaults)
-            out[key] = valid(colors[key]) ? colors[key] : defaults[key]
-        values = out
+            out[key] = valid(colors[key]) ? colors[key].toUpperCase() : defaults[key]
+        values = readable(out)
         name = (data && typeof data.name === "string" && data.name.length < 61) ? data.name : "Gudetama"
         revision++
     }

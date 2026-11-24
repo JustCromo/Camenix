@@ -64,6 +64,36 @@ class TestThemeQml(unittest.TestCase):
                     '{"colors":{"text":"#FF0000"},"x":"' + "A" * 70000 + '"}'):
             self.assertEqual(self.load(raw), self.defaults, raw[:60])
 
+    def test_readable_on_dark_glass(self):
+        # il caso reale: tema scuro, verde e rosso scuri della palette chiara -> schiariti quanto basta
+        from camenix.derive import contrast, to_hls
+        v = self.load(json.dumps({"colors": {"glass": "#2A1418", "text": "#F2E6E8"}}))
+        for role, need in (("success", 4.5), ("error", 4.5), ("accent2", 3), ("warning", 3)):
+            self.assertGreaterEqual(contrast(v[role], v["glass"]), need, role)
+            self.assertAlmostEqual(to_hls(v[role])[0], to_hls(self.defaults[role])[0], delta=0.02)   # stessa tinta
+        self.assertEqual(v["text"], "#F2E6E8")          # già leggibile: non si tocca
+
+    def test_readable_on_light_glass(self):
+        from camenix.derive import contrast
+        v = self.load(json.dumps({"colors": {"glass": "#FFFFFF", "success": "#B8F5C8", "accent2": "#FFE0B0"}}))
+        self.assertGreaterEqual(contrast(v["success"], "#FFFFFF"), 4.5)
+        self.assertGreaterEqual(contrast(v["accent2"], "#FFFFFF"), 3)
+
+    def test_readable_keeps_original_palette(self):
+        # Gudetama scritto per intero (anche in minuscolo): identico ai predefiniti
+        lower = {k: c.lower() for k, c in self.defaults.items()}
+        self.assertEqual(self.load(json.dumps({"colors": lower})), self.defaults)
+        self.assertEqual(self.load(json.dumps({"colors": self.defaults})), self.defaults)
+
+    def test_readable_always_ends(self):
+        # vetro grigio medio, colori impossibili: si ferma senza bloccarsi e restituisce colori validi
+        import re
+        for glass in ("#808080", "#000000", "#FFFFFF", "#767676"):
+            for c in ("#000000", "#FFFFFF", "#808080", "#FF0000"):
+                v = self.load(json.dumps({"colors": {"glass": glass, "success": c, "text": c, "accent2": c}}))
+                for role in ("success", "text", "accent2", "error", "warning"):
+                    self.assertRegex(v[role], r"^#[0-9A-F]{6}$")
+
     def test_revision_grows(self):
         before = self.call("rev")
         self.load("")
